@@ -1,0 +1,68 @@
+services:
+  searxng:
+    image: searxng/searxng:latest
+    container_name: comptrack_searxng
+    ports:
+      - "8889:8888"   # host 8889 → avoids collision with Market Research Agent on 8888
+    volumes:
+      - ./searxng:/etc/searxng:ro
+    environment:
+      - SEARXNG_BASE_URL=http://localhost:8888
+    networks:
+      - comptrack_net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8888/search?q=test&format=json"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: comptrack_backend
+    ports:
+      - "8081:8081"
+    env_file:
+      - .env
+    environment:
+      - SEARXNG_BASE_URL=http://searxng:8888
+      - FRONTEND_URL=http://localhost:3001
+    volumes:
+      - comptrack_data:/app/data
+    networks:
+      - comptrack_net
+    depends_on:
+      searxng:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8081/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: comptrack_frontend
+    ports:
+      - "3001:3001"
+    environment:
+      - INTERNAL_API_URL=http://backend:8081
+      - NEXT_PUBLIC_APP_NAME=CompTrack
+    networks:
+      - comptrack_net
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  comptrack_data:
+
+networks:
+  comptrack_net:
+    driver: bridge

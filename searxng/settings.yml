@@ -1,0 +1,76 @@
+use_default_settings: true
+
+general:
+  debug: false
+  instance_name: "CompTrack Search"
+  privacypolicy_url: false
+  donation_url: false
+  contact_url: false
+  enable_metrics: false
+
+search:
+  safe_search: 0
+  autocomplete: ""
+  default_lang: "en"
+  max_page: 3
+
+server:
+  port: 8888
+  bind_address: "0.0.0.0"
+  secret_key: "comptrack-searxng-secret-change-me"
+  base_url: false
+  image_proxy: false
+  http_protocol_version: "1.0"
+  formats:
+    - json
+
+ui:
+  static_use_hash: false
+  default_locale: "en"
+  query_in_title: false
+  infinite_scroll: false
+  default_theme: simple
+  results_on_new_tab: false
+  advanced_search: true
+  search_on_category_select: true
+  hotkeys: default
+
+redis:
+  url: false
+
+outgoing:
+  request_timeout: 10.0
+  max_request_timeout: 30.0
+  useragent_suffix: ""
+  pool_connections: 100
+  pool_maxsize: 10
+
+engines:
+  - name: google
+    engine: google
+    shortcut: g
+    use_mobile_ui: false
+
+  - name: bing
+    engine: bing
+    shortcut: b
+
+  - name: duckduckgo
+    engine: duckduckgo
+    shortcut: d
+
+  - name: google news
+    engine: google_news
+    shortcut: gn
+    categories: news
+
+  - name: bing news
+    engine: bing_news
+    shortcut: bn
+    categories: news
+
+categories_as_tabs:
+  general:
+    - general
+  news:
+    - news
