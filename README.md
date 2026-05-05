@@ -1,109 +1,193 @@
 # CompTrack
 
-Internal competitor intelligence platform for E2E Networks.
-Monitors competitors across social, news, and web channels with daily and weekly scheduled jobs.
-
-**Access:** Internal only — requires an @e2enetworks.com Google account.
+Competitor intelligence platform for E2E Networks. Tracks competitors across web, news, Twitter/X, and LinkedIn using scheduled crawl + LLM digest jobs.
 
 ---
 
 ## Stack
 
-- **Backend:** FastAPI + Python 3.12, SQLite, APScheduler
-- **Frontend:** Next.js 15, React 19, Tailwind CSS v4
-- **Search:** SearXNG (self-hosted)
-- **Crawling:** Crawl4AI
-- **LLM:** Llama 3.3 70B via OpenAI-compatible TIR endpoint
-- **Auth:** Google OAuth 2.0 (HTTP-only JWT cookies)
+| Layer | Technology |
+|---|---|
+| Backend | FastAPI, Python 3.12, aiosqlite (SQLite WAL) |
+| Frontend | Next.js 15, React 19, Tailwind CSS v4 |
+| Auth | Google OAuth 2.0, HTTP-only JWT cookies |
+| Search | SearXNG (self-hosted) |
+| Crawling | Crawl4AI + Playwright (Chromium) |
+| LLM | Llama 3.3 70B primary, Qwen3 32B fallback (OpenAI-compatible) |
+| Scheduler | APScheduler AsyncIOScheduler (IST timezone) |
 
 ---
 
-## Setup
+## Project Structure
 
-### 1. Google OAuth credentials
-
-1. Go to [Google Cloud Console → Credentials](https://console.cloud.google.com/apis/credentials)
-2. Create an OAuth 2.0 Client ID (type: Web application)
-3. Add authorised redirect URI: `http://<VM-IP>:8081/auth/google/callback`
-4. Copy the Client ID and Client Secret
-
-### 2. Environment
-
-```bash
-cp .env.example .env
+```
+comptrack/
+├── app/                    # FastAPI backend
+│   ├── main.py
+│   ├── config.py
+│   ├── auth/               # Google OAuth, JWT helpers
+│   ├── db/                 # aiosqlite schema + CRUD
+│   ├── middleware/         # IP restriction
+│   ├── models/             # Pydantic schemas
+│   ├── routers/            # auth, competitors, jobs, admin
+│   ├── scheduler/          # APScheduler jobs
+│   └── services/           # search, crawl, LLM, tracker
+├── frontend/               # Next.js app
+│   └── src/
+│       ├── app/            # App Router pages + API proxy routes
+│       ├── components/
+│       └── lib/            # API client, auth context
+├── searxng/
+│   └── settings.yml
+├── Dockerfile              # Backend image
+├── Dockerfile.frontend
+├── docker-compose.yml
+├── requirements.txt
+└── .env.example
 ```
 
-Edit `.env` and fill in:
+---
 
-| Variable | Description |
-|---|---|
-| `GOOGLE_CLIENT_ID` | From Google Cloud Console |
-| `GOOGLE_CLIENT_SECRET` | From Google Cloud Console |
-| `GOOGLE_REDIRECT_URI` | `http://<VM-IP>:8081/auth/google/callback` |
-| `ADMIN_EMAIL` | First login from this email gets admin role |
-| `SECRET_KEY` | Random string (32+ chars) for JWT signing |
-| `LLM_BASE_URL` | TIR LLM endpoint (pre-filled) |
-| `FRONTEND_URL` | `http://<VM-IP>:3001` |
-| `CORS_ORIGINS` | `http://<VM-IP>:3001` |
-| `ALLOWED_IPS` | Comma-separated client IPs to whitelist (leave empty to disable) |
+## Environment Variables
 
-### 3. Run
+Copy `.env.example` to `.env` and fill in all values.
+
+```
+# Primary LLM
+LLM_BASE_URL=
+LLM_API_KEY=
+LLM_MODEL=llama-3.3-70b-instruct
+LLM_CONTEXT_WINDOW=32768
+LLM_TEMPERATURE=0.3
+LLM_MAX_TOKENS=2048
+
+# Fallback LLM (Qwen3 32B — activated when primary fails all retries)
+FALLBACK_LLM_BASE_URL=
+FALLBACK_LLM_API_KEY=
+FALLBACK_LLM_MODEL=qwen3_32b
+
+# Google OAuth
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_REDIRECT_URI=https://<domain>/auth/google/callback
+ALLOWED_EMAIL_DOMAIN=e2enetworks.com
+
+# Admin role seeding (comma-separated, applied on first login)
+ADMIN_EMAILS=
+
+# JWT
+SECRET_KEY=                          # generate: python -c "import secrets; print(secrets.token_hex(32))"
+
+# Cookies
+COOKIE_SECURE=true                   # set false for local dev
+
+# SearXNG
+SEARXNG_BASE_URL=http://searxng:8888
+MAX_SEARCH_RESULTS=10
+
+# IP restriction (leave empty to disable)
+ALLOWED_IPS=
+
+# Trusted reverse proxies for X-Forwarded-For (add frontend container IP after first docker-compose up)
+TRUSTED_PROXIES=
+
+# App
+BACKEND_PORT=8081
+FRONTEND_PORT=3001
+FRONTEND_URL=https://<domain>
+CORS_ORIGINS=https://<domain>
+```
+
+---
+
+## Running
 
 ```bash
 docker-compose up --build -d
 ```
 
-Visit `http://<VM-IP>:3001` and sign in with Google.
+Three services start on the `comptrack_net` bridge network:
 
-### 4. First admin
-
-The first `@e2enetworks.com` user whose email matches `ADMIN_EMAIL` in `.env` gets the `admin` role on first login. All other users get `user` role.
-
----
-
-## Scheduled jobs
-
-| Job | Schedule (IST) | What it does |
+| Container | Host port | Notes |
 |---|---|---|
-| Daily | Every day at 07:00 | Twitter/X, LinkedIn, website crawl for all active competitors |
-| Weekly | Monday at 08:00 | Full news search + tracked individuals search |
+| `comptrack_searxng` | 8889 | Internal port 8888 |
+| `comptrack_backend` | 8081 | FastAPI + Uvicorn |
+| `comptrack_frontend` | 3001 | Next.js |
 
-Admins can trigger either job manually from the Admin panel or from a competitor's detail page.
+Port 8889 avoids collision with other SearXNG instances on the same host.
+
+After first start, get the frontend container IP and set `TRUSTED_PROXIES`:
+
+```bash
+docker inspect comptrack_frontend | grep IPAddress
+# add the IP to TRUSTED_PROXIES in .env
+docker-compose restart backend
+```
 
 ---
 
-## Ports
+## Database
 
-| Service | Host port | Internal port |
+SQLite at `/app/data/comptrack.db` (WAL mode), persisted via `comptrack_data` Docker volume.
+
+| Table | Purpose |
+|---|---|
+| `users` | email, name, picture, role, last_login |
+| `competitors` | name, category, website_url, twitter_handle, linkedin_url |
+| `tracked_individuals` | people monitored per competitor |
+| `competitor_suggestions` | user-submitted suggestions with review status |
+| `job_runs` | execution log with status, triggered_by, error |
+| `tracking_raw` | raw crawl/search JSON per job run |
+| `digests` | structured LLM digest JSON per competitor per period |
+| `refresh_tokens` | SHA-256 hashed refresh tokens with expiry |
+
+---
+
+## Scheduled Jobs
+
+| Job | Schedule (IST) | Scope |
 |---|---|---|
-| SearXNG | 8889 | 8888 |
-| Backend API | 8081 | 8081 |
-| Frontend | 3001 | 3001 |
+| Daily | 07:00 every day | All active competitors |
+| Weekly | Monday 08:00 | All active competitors (deeper search) |
 
-These ports are chosen to avoid collision with the Market Research Agent (backend: 8080, frontend: 3000, SearXNG: 8888).
+APScheduler settings: `coalesce=True`, `misfire_grace_time=3600`, `max_instances=1`.
 
----
-
-## Isolation from Market Research Agent
-
-CompTrack runs in a separate Docker Compose stack (`comptrack_net` network) with its own:
-- SQLite database (`comptrack_data` volume)
-- SearXNG instance (port 8889)
-- Backend process (port 8081)
-- Frontend process (port 3001)
-
-No shared state with the Market Research Agent.
+Jobs can also be triggered manually via the admin panel.
 
 ---
 
-## Development (local, without Docker)
+## LLM Failover
+
+`llm_service.py` calls the primary endpoint with 3 retries (exponential backoff 2–30s). On exhaustion it falls back to the secondary endpoint with the same retry policy. Both endpoints must be OpenAI-compatible (`/chat/completions`). `<think>` blocks from reasoning models (Qwen3, DeepSeek) are stripped before returning.
+
+---
+
+## Auth Flow
+
+1. `/auth/google` — builds Google OAuth URL, stores CSRF state in HttpOnly cookie (10 min TTL)
+2. `/auth/google/callback` — validates state cookie, exchanges code, fetches user info
+3. Domain check: only `@e2enetworks.com` emails allowed
+4. Issues 15-min access token + 30-day refresh token, both as HttpOnly cookies
+5. Refresh token stored as SHA-256 hash in DB; rotated on every use
+6. `/auth/refresh` — issues new token pair and invalidates old refresh token
+7. `/auth/logout` — revokes refresh token and clears both cookies (no valid access token required)
+
+---
+
+## API Proxy
+
+All `/api/*` and `/auth/*` requests from the browser hit the Next.js server, which forwards them to `http://backend:8081`. The proxy strips all inbound forwarding headers (`x-forwarded-for`, `x-real-ip`, etc.) and sets a clean single-hop `X-Forwarded-For` from the browser IP to prevent spoofing.
+
+---
+
+## Local Development (without Docker)
 
 **Backend:**
 ```bash
-cd backend
-pip install -r requirements.txt
+cd app
+pip install -r ../requirements.txt
 python -m playwright install chromium
-cp ../.env.example .env  # edit as needed
+cp ../.env.example ../.env   # fill in values
 uvicorn main:app --reload --port 8081
 ```
 
@@ -112,10 +196,7 @@ uvicorn main:app --reload --port 8081
 cd frontend
 npm install
 INTERNAL_API_URL=http://localhost:8081 npm run dev
-# Runs on port 3001
 ```
-
-**SearXNG:** Run separately or use an existing instance.
 
 ---
 
@@ -126,15 +207,3 @@ docker-compose logs -f backend
 docker-compose logs -f frontend
 docker-compose logs -f searxng
 ```
-
----
-
-## Troubleshooting
-
-**LinkedIn data unavailable:** Expected. LinkedIn aggressively blocks crawlers. The UI shows "LinkedIn data unavailable" — this is graceful failure, not a bug.
-
-**LLM timeout:** The TIR endpoint may be slow under load. The LLM service retries 3× with exponential backoff. If it consistently fails, check `http://164.52.194.136:8000/health`.
-
-**SearXNG returns no results:** Check that the SearXNG container is healthy: `docker-compose ps`. The search engines (Google, Bing) may rate-limit the container's IP — results vary.
-
-**Google OAuth redirect mismatch:** Ensure the redirect URI in `.env` exactly matches what you registered in Google Cloud Console, including the port.
