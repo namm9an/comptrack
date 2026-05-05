@@ -53,11 +53,6 @@ Edit `.env` and fill in:
 docker-compose up --build -d
 ```
 
-All three services start:
-- `comptrack_searxng` — SearXNG on host port **8889**
-- `comptrack_backend` — FastAPI on host port **8081**
-- `comptrack_frontend` — Next.js on host port **3001**
-
 Visit `http://<VM-IP>:3001` and sign in with Google.
 
 ### 4. First admin
