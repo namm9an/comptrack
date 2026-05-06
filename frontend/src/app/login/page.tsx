@@ -52,12 +52,12 @@ export default function LoginPage() {
                 Track competitor movement without the noise.
               </h1>
               <p className="text-lg leading-relaxed text-slate-300">
-                Daily digests, tracked companies, job history, and admin controls in one focused workspace.
+                Daily digests, tracked companies, and job history in one focused workspace.
               </p>
             </div>
 
-            <div className="grid max-w-xl gap-3 sm:grid-cols-3">
-              {["Daily digests", "Competitor profiles", "Admin review"].map((label) => (
+            <div className="grid max-w-xl gap-3 sm:grid-cols-2">
+              {["Daily digests", "Competitor profiles"].map((label) => (
                 <div key={label} className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
                   <p className="text-sm font-medium text-slate-100">{label}</p>
                 </div>
