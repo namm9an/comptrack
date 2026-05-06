@@ -23,13 +23,9 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
         credentials: "include",
         headers: { "Content-Type": "application/json", ...(options?.headers ?? {}) },
       });
-      if (!retry.ok) {
-        window.location.href = "/login";
-        throw new Error("Unauthorized");
-      }
+      if (!retry.ok) throw new Error("Unauthorized");
       return retry.json() as Promise<T>;
     }
-    window.location.href = "/login";
     throw new Error("Unauthorized");
   }
 
