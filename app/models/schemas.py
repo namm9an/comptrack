@@ -36,7 +36,7 @@ class TrackedIndividualOut(TrackedIndividualIn):
 
 class CompetitorIn(BaseModel):
     name: str
-    category: str  # e2e_cloud | tir
+    category: str  # e2e_cloud | tir | both
     website_url: Optional[str] = None
     twitter_handle: Optional[str] = None
     linkedin_url: Optional[str] = None
@@ -45,8 +45,8 @@ class CompetitorIn(BaseModel):
     @field_validator("category")
     @classmethod
     def validate_category(cls, v: str) -> str:
-        if v not in ("e2e_cloud", "tir"):
-            raise ValueError("category must be 'e2e_cloud' or 'tir'")
+        if v not in ("e2e_cloud", "tir", "both"):
+            raise ValueError("category must be 'e2e_cloud', 'tir', or 'both'")
         return v
 
 
@@ -86,8 +86,8 @@ class SuggestionIn(BaseModel):
     @field_validator("category")
     @classmethod
     def validate_category(cls, v: str) -> str:
-        if v not in ("e2e_cloud", "tir"):
-            raise ValueError("category must be 'e2e_cloud' or 'tir'")
+        if v not in ("e2e_cloud", "tir", "both"):
+            raise ValueError("category must be 'e2e_cloud', 'tir', or 'both'")
         return v
 
 

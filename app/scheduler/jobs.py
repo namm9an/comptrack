@@ -1,8 +1,8 @@
 """
 APScheduler job definitions.
 
-Daily job  → 07:00 IST (Asia/Kolkata)
-Weekly job → Monday 08:00 IST
+Daily job  → 06:00 IST (Asia/Kolkata)
+Weekly job → Monday 06:00 IST
 
 Both jobs iterate all active competitors sequentially.
 """
@@ -66,17 +66,17 @@ async def weekly_job() -> None:
 def start_scheduler() -> None:
     scheduler.add_job(
         daily_job,
-        CronTrigger(hour=7, minute=0, timezone=SCHEDULER_TIMEZONE),
+        CronTrigger(hour=6, minute=0, timezone=SCHEDULER_TIMEZONE),
         id="daily_tracker",
         name="Daily competitor tracking",
         replace_existing=True,
         coalesce=True,           # skip missed runs that pile up (e.g. after restart)
-        misfire_grace_time=3600, # fire up to 1h late if the process was restarting at 07:00
+        misfire_grace_time=3600, # fire up to 1h late if the process was restarting at 06:00
         max_instances=1,
     )
     scheduler.add_job(
         weekly_job,
-        CronTrigger(day_of_week="mon", hour=8, minute=0, timezone=SCHEDULER_TIMEZONE),
+        CronTrigger(day_of_week="mon", hour=6, minute=0, timezone=SCHEDULER_TIMEZONE),
         id="weekly_tracker",
         name="Weekly competitor tracking",
         replace_existing=True,
@@ -86,7 +86,7 @@ def start_scheduler() -> None:
     )
     scheduler.start()
     log.info(
-        "Scheduler started — daily at 07:00 IST, weekly Mon 08:00 IST"
+        "Scheduler started — daily at 06:00 IST, weekly Mon 06:00 IST"
     )
 
 
