@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Globe, Twitter, Linkedin, Play, User, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Globe, Linkedin, Play, User, Plus, Trash2, Calendar, ChevronDown } from "lucide-react";
+import { XIcon } from "@/components/XIcon";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -39,6 +40,11 @@ export default function CompetitorDetailPage() {
   const [showAddInd, setShowAddInd] = useState(false);
   const [indForm, setIndForm] = useState({ name: "", title: "", twitter_handle: "", linkedin_url: "" });
   const [addingInd, setAddingInd] = useState(false);
+
+  // Digest tab state
+  const [digestTab, setDigestTab] = useState<"daily" | "weekly">("daily");
+  const [selectedDate, setSelectedDate] = useState<string>("");   // YYYY-MM-DD
+  const [selectedMonth, setSelectedMonth] = useState<string>(""); // YYYY-MM
 
   useEffect(() => {
     if (!loading && !user) router.replace("/login");
@@ -168,9 +174,9 @@ export default function CompetitorDetailPage() {
                     </a>
                   )}
                   {competitor.twitter_handle && (
-                    <a href={`https://twitter.com/${competitor.twitter_handle}`} target="_blank"
+                    <a href={`https://x.com/${competitor.twitter_handle}`} target="_blank"
                       rel="noopener noreferrer" className="flex items-center gap-1 hover:text-blue-600">
-                      <Twitter size={13} /> @{competitor.twitter_handle}
+                      <XIcon size={13} /> @{competitor.twitter_handle}
                     </a>
                   )}
                   {competitor.linkedin_url && (
@@ -261,9 +267,10 @@ export default function CompetitorDetailPage() {
 
           {/* Digest history */}
           <section>
-            <h2 className="text-sm font-semibold text-slate-700 mb-3">
+            <h2 className="text-sm font-semibold text-slate-700 mb-4">
               Digest History ({digests.length})
             </h2>
+
             {digests.length === 0 ? (
               <div className="text-center py-12 border border-dashed border-slate-200 rounded-xl">
                 <p className="text-sm text-slate-400">No digests yet.</p>
@@ -272,11 +279,92 @@ export default function CompetitorDetailPage() {
                 )}
               </div>
             ) : (
-              <div className="space-y-4">
-                {digests.map((d) => (
-                  <DigestCard key={d.id} digest={d} />
-                ))}
-              </div>
+              <>
+                {/* Tab bar */}
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex bg-slate-100 rounded-lg p-1 gap-1">
+                    {(["daily", "weekly"] as const).map((tab) => (
+                      <button
+                        key={tab}
+                        onClick={() => { setDigestTab(tab); setSelectedDate(""); setSelectedMonth(""); }}
+                        className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all capitalize ${
+                          digestTab === tab
+                            ? "bg-white text-slate-900 shadow-sm"
+                            : "text-slate-500 hover:text-slate-700"
+                        }`}
+                      >
+                        {tab}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Filter */}
+                  {digestTab === "daily" ? (
+                    <div className="flex items-center gap-2">
+                      <Calendar size={14} className="text-slate-400" />
+                      <input
+                        type="date"
+                        value={selectedDate}
+                        onChange={(e) => setSelectedDate(e.target.value)}
+                        className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                      />
+                      {selectedDate && (
+                        <button
+                          onClick={() => setSelectedDate("")}
+                          className="text-xs text-slate-400 hover:text-slate-600"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <ChevronDown size={14} className="text-slate-400" />
+                      <input
+                        type="month"
+                        value={selectedMonth}
+                        onChange={(e) => setSelectedMonth(e.target.value)}
+                        className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                      />
+                      {selectedMonth && (
+                        <button
+                          onClick={() => setSelectedMonth("")}
+                          className="text-xs text-slate-400 hover:text-slate-600"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Digest list */}
+                {(() => {
+                  const filtered = digests
+                    .filter((d) => d.period === digestTab)
+                    .filter((d) => {
+                      if (digestTab === "daily" && selectedDate) return d.digest_date === selectedDate;
+                      if (digestTab === "weekly" && selectedMonth) return d.digest_date.startsWith(selectedMonth);
+                      return true;
+                    });
+
+                  return filtered.length === 0 ? (
+                    <div className="text-center py-10 border border-dashed border-slate-200 rounded-xl">
+                      <p className="text-sm text-slate-400">
+                        {selectedDate || selectedMonth
+                          ? "No digests match the selected filter."
+                          : `No ${digestTab} digests yet.`}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {filtered.map((d) => (
+                        <DigestCard key={d.id} digest={d} />
+                      ))}
+                    </div>
+                  );
+                })()}
+              </>
             )}
           </section>
 

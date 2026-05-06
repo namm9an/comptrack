@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { ExternalLink, Globe, Twitter } from "lucide-react";
+import { ExternalLink, Globe } from "lucide-react";
+import { XIcon } from "@/components/XIcon";
 import type { Competitor } from "@/lib/api";
 import { categoryLabel, formatDate } from "@/lib/utils";
 
@@ -50,7 +51,7 @@ export function CompetitorCard({ competitor: c }: Props) {
                 onClick={(e) => e.stopPropagation()}
                 className="text-slate-400 hover:text-slate-700 transition-colors"
               >
-                <Twitter size={14} />
+                <XIcon size={14} />
               </a>
             )}
           </div>
