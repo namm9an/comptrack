@@ -3,16 +3,16 @@ services:
     image: searxng/searxng:latest
     container_name: comptrack_searxng
     ports:
-      - "8889:8888"   # host 8889 → avoids collision with Market Research Agent on 8888
+      - "8889:8080"   # host 8889 → avoids collision with Market Research Agent; container binds 8080
     volumes:
       - ./searxng:/etc/searxng:ro
     environment:
-      - SEARXNG_BASE_URL=http://localhost:8888
+      - SEARXNG_BASE_URL=http://localhost:8080
     networks:
       - comptrack_net
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8888/search?q=test&format=json"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -27,7 +27,7 @@ services:
     env_file:
       - .env
     environment:
-      - SEARXNG_BASE_URL=http://searxng:8888
+      - SEARXNG_BASE_URL=http://searxng:8080
       - FRONTEND_URL=http://localhost:3001
     volumes:
       - comptrack_data:/app/data
