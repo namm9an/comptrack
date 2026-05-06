@@ -40,6 +40,9 @@ class CompetitorIn(BaseModel):
     website_url: Optional[str] = None
     twitter_handle: Optional[str] = None
     linkedin_url: Optional[str] = None
+    careers_url: Optional[str] = None
+    pricing_url: Optional[str] = None
+    product_url: Optional[str] = None
     individuals: list[TrackedIndividualIn] = []
 
     @field_validator("category")
@@ -56,6 +59,9 @@ class CompetitorUpdate(BaseModel):
     website_url: Optional[str] = None
     twitter_handle: Optional[str] = None
     linkedin_url: Optional[str] = None
+    careers_url: Optional[str] = None
+    pricing_url: Optional[str] = None
+    product_url: Optional[str] = None
     active: Optional[bool] = None
 
 
@@ -66,6 +72,9 @@ class CompetitorOut(BaseModel):
     website_url: Optional[str] = None
     twitter_handle: Optional[str] = None
     linkedin_url: Optional[str] = None
+    careers_url: Optional[str] = None
+    pricing_url: Optional[str] = None
+    product_url: Optional[str] = None
     active: bool
     added_by: Optional[str] = None
     created_at: str
@@ -146,6 +155,25 @@ class JobRunOut(BaseModel):
 # Digests
 # ---------------------------------------------------------------------------
 
+class DigestContent(BaseModel):
+    """Structured schema for the digest JSON produced by the LLM pipeline."""
+
+    competitor: str
+    period: str
+    date: str
+    summary: str = ""
+    highlights: list[str] = []
+    key_people_activity: list[dict[str, str]] = []
+    events_announced: list[dict[str, str]] = []
+    product_moves: list[str] = []
+    social_activity: str = "No data available"
+    news_mentions: list[str] = []
+    metrics_mentioned: list[str] = []
+    website_changes: list[dict[str, str]] = []
+    hiring_signals: Optional[dict] = None
+    sources: list[str] = []
+
+
 class DigestOut(BaseModel):
     id: int
     job_run_id: int
@@ -154,6 +182,22 @@ class DigestOut(BaseModel):
     digest_date: str
     digest: dict[str, Any]
     created_at: str
+
+
+# ---------------------------------------------------------------------------
+# Job postings
+# ---------------------------------------------------------------------------
+
+class JobPostingOut(BaseModel):
+    id: int
+    competitor_id: int
+    title: str
+    department: Optional[str] = None
+    location: Optional[str] = None
+    url: Optional[str] = None
+    first_seen: str
+    last_seen: str
+    status: str
 
 
 # Forward reference resolution

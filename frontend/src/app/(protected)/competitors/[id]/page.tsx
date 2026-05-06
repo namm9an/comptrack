@@ -12,10 +12,12 @@ import {
   addIndividual,
   removeIndividual,
   listJobs,
+  listJobPostings,
   type Competitor,
   type Digest,
   type JobRun,
   type Individual,
+  type JobPosting,
 } from "@/lib/api";
 import { DigestCard } from "@/components/DigestCard";
 import { JobStatusBadge } from "@/components/JobStatusBadge";
@@ -29,6 +31,7 @@ export default function CompetitorDetailPage() {
   const [competitor, setCompetitor] = useState<Competitor | null>(null);
   const [digests, setDigests] = useState<Digest[]>([]);
   const [individuals, setIndividuals] = useState<Individual[]>([]);
+  const [jobPostings, setJobPostings] = useState<JobPosting[]>([]);
   const [triggering, setTriggering] = useState<"daily" | "weekly" | null>(null);
   const [lastJob, setLastJob] = useState<JobRun | null>(null);
   const [fetching, setFetching] = useState(true);
@@ -49,6 +52,11 @@ export default function CompetitorDetailPage() {
         setCompetitor(comp);
         setIndividuals(comp.individuals ?? []);
         setDigests(digs);
+        if (comp.careers_url) {
+          listJobPostings(numId).then(setJobPostings).catch((err: unknown) => {
+            console.error("Failed to load job postings:", err);
+          });
+        }
       })
       .finally(() => setFetching(false));
   }, [user, id]);
@@ -271,6 +279,73 @@ export default function CompetitorDetailPage() {
               </div>
             )}
           </section>
+
+          {/* Open Roles */}
+          {(competitor.careers_url || jobPostings.length > 0) && (
+            <section className="mt-10">
+              <div className="flex items-center gap-3 mb-4">
+                <h2 className="text-lg font-semibold text-slate-900">Open Roles</h2>
+                {jobPostings.length > 0 && (
+                  <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                    {jobPostings.length}
+                  </span>
+                )}
+              </div>
+
+              {!competitor.careers_url ? (
+                <p className="text-sm text-slate-400 py-4 text-center border border-dashed border-slate-200 rounded-xl">
+                  No careers page configured for this competitor.
+                </p>
+              ) : jobPostings.length === 0 ? (
+                <p className="text-sm text-slate-400 py-4 text-center border border-dashed border-slate-200 rounded-xl">
+                  No open positions tracked yet — will populate after next job run.
+                </p>
+              ) : (
+                <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-50 border-b border-slate-200">
+                      <tr>
+                        {["Role", "Department", "Location", "First seen"].map((h) => (
+                          <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {jobPostings.map((job) => (
+                        <tr key={job.id} className="hover:bg-slate-50">
+                          <td className="px-4 py-3">
+                            {job.url ? (
+                              <a href={job.url} target="_blank" rel="noopener noreferrer"
+                                className="text-blue-600 hover:underline font-medium">
+                                {job.title}
+                              </a>
+                            ) : (
+                              <span className="text-slate-800 font-medium">{job.title}</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            {job.department ? (
+                              <span className="text-xs bg-slate-100 text-slate-600 rounded px-2 py-0.5">
+                                {job.department}
+                              </span>
+                            ) : <span className="text-slate-400">—</span>}
+                          </td>
+                          <td className="px-4 py-3 text-slate-500 text-sm">
+                            {job.location ?? "—"}
+                          </td>
+                          <td className="px-4 py-3 text-slate-400 text-xs">
+                            {job.first_seen}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          )}
         </div>
       </main>
 

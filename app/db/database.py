@@ -100,6 +100,34 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
     expires_at  TEXT    NOT NULL,
     created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
 );
+
+CREATE TABLE IF NOT EXISTS page_snapshots (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    competitor_id   INTEGER NOT NULL REFERENCES competitors(id) ON DELETE CASCADE,
+    page_type       TEXT    NOT NULL,
+    url             TEXT    NOT NULL,
+    content_hash    TEXT    NOT NULL,
+    content_text    TEXT    NOT NULL,
+    snapshot_date   TEXT    NOT NULL DEFAULT (date('now')),
+    created_at      TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_snapshots_comp_type
+    ON page_snapshots(competitor_id, page_type);
+
+CREATE TABLE IF NOT EXISTS job_postings (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    competitor_id   INTEGER NOT NULL REFERENCES competitors(id) ON DELETE CASCADE,
+    title           TEXT    NOT NULL,
+    department      TEXT,
+    location        TEXT,
+    url             TEXT,
+    first_seen      TEXT    NOT NULL,
+    last_seen       TEXT    NOT NULL,
+    status          TEXT    NOT NULL DEFAULT 'active'
+                            CHECK(status IN ('active', 'removed'))
+);
+CREATE INDEX IF NOT EXISTS idx_job_postings_comp
+    ON job_postings(competitor_id, status);
 """
 
 SEED_COMPETITORS = [
@@ -120,6 +148,13 @@ async def get_db() -> aiosqlite.Connection:
         _db = await aiosqlite.connect(str(DB_PATH))
         _db.row_factory = aiosqlite.Row
         await _db.executescript(SCHEMA)
+        await _db.commit()
+        # Migrate: add new competitor URL columns if they don't exist yet
+        for col in ("careers_url", "pricing_url", "product_url"):
+            try:
+                await _db.execute(f"ALTER TABLE competitors ADD COLUMN {col} TEXT")
+            except Exception:
+                pass  # column already exists
         await _db.commit()
         await _seed_competitors()
         log.info("Database initialised at %s", DB_PATH)
@@ -213,14 +248,18 @@ async def get_competitor(competitor_id: int) -> Optional[dict]:
 
 
 async def create_competitor(data: dict) -> dict:
+    """Insert a new competitor row and return the created record."""
     db = await get_db()
     cursor = await db.execute(
         """INSERT INTO competitors
-           (name, category, website_url, twitter_handle, linkedin_url, added_by)
-           VALUES (?,?,?,?,?,?)""",
+           (name, category, website_url, twitter_handle, linkedin_url,
+            careers_url, pricing_url, product_url, added_by)
+           VALUES (?,?,?,?,?,?,?,?,?)""",
         (
             data["name"], data["category"], data.get("website_url"),
-            data.get("twitter_handle"), data.get("linkedin_url"), data.get("added_by"),
+            data.get("twitter_handle"), data.get("linkedin_url"),
+            data.get("careers_url"), data.get("pricing_url"), data.get("product_url"),
+            data.get("added_by"),
         ),
     )
     await db.commit()
@@ -228,9 +267,11 @@ async def create_competitor(data: dict) -> dict:
 
 
 async def update_competitor(competitor_id: int, data: dict) -> Optional[dict]:
+    """Update allowed fields on a competitor and return the updated record."""
     db = await get_db()
     fields = {k: v for k, v in data.items() if k in
-              {"name", "category", "website_url", "twitter_handle", "linkedin_url", "active"}}
+              {"name", "category", "website_url", "twitter_handle", "linkedin_url",
+               "careers_url", "pricing_url", "product_url", "active"}}
     if not fields:
         return await get_competitor(competitor_id)
     sets = ", ".join(f"{k}=?" for k in fields)
@@ -470,9 +511,139 @@ async def delete_user_refresh_tokens(user_email: str) -> None:
 
 
 async def delete_job_run(job_run_id: int) -> bool:
+    """Delete a job run and all associated raw/digest records."""
     db = await get_db()
     await db.execute("DELETE FROM tracking_raw WHERE job_run_id=?", (job_run_id,))
     await db.execute("DELETE FROM digests WHERE job_run_id=?", (job_run_id,))
     cur = await db.execute("DELETE FROM job_runs WHERE id=?", (job_run_id,))
     await db.commit()
     return cur.rowcount > 0
+
+
+# ---------------------------------------------------------------------------
+# Page snapshots
+# ---------------------------------------------------------------------------
+
+async def get_latest_page_snapshot(
+    competitor_id: int, page_type: str
+) -> Optional[dict]:
+    """Return the most recent snapshot for a competitor page type, or None."""
+    conn = await get_db()
+    async with conn.execute(
+        "SELECT * FROM page_snapshots "
+        "WHERE competitor_id=? AND page_type=? "
+        "ORDER BY created_at DESC LIMIT 1",
+        (competitor_id, page_type),
+    ) as cur:
+        row = await cur.fetchone()
+    return dict(row) if row else None
+
+
+async def save_page_snapshot(
+    competitor_id: int,
+    page_type: str,
+    url: str,
+    content_hash: str,
+    content_text: str,
+) -> None:
+    """Store a new page snapshot."""
+    conn = await get_db()
+    await conn.execute(
+        "INSERT INTO page_snapshots"
+        "(competitor_id, page_type, url, content_hash, content_text) "
+        "VALUES (?, ?, ?, ?, ?)",
+        (competitor_id, page_type, url, content_hash, content_text),
+    )
+    await conn.commit()
+
+
+# ---------------------------------------------------------------------------
+# Job postings
+# ---------------------------------------------------------------------------
+
+async def list_active_job_postings(competitor_id: int) -> list[dict]:
+    """Return all active job postings for a competitor."""
+    conn = await get_db()
+    async with conn.execute(
+        "SELECT * FROM job_postings "
+        "WHERE competitor_id=? AND status='active' "
+        "ORDER BY first_seen DESC",
+        (competitor_id,),
+    ) as cur:
+        rows = await cur.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def list_job_postings(
+    competitor_id: int, status: Optional[str] = None
+) -> list[dict]:
+    """Return job postings for a competitor, optionally filtered by status."""
+    conn = await get_db()
+    if status:
+        async with conn.execute(
+            "SELECT * FROM job_postings WHERE competitor_id=? AND status=? "
+            "ORDER BY first_seen DESC",
+            (competitor_id, status),
+        ) as cur:
+            rows = await cur.fetchall()
+    else:
+        async with conn.execute(
+            "SELECT * FROM job_postings WHERE competitor_id=? "
+            "ORDER BY first_seen DESC",
+            (competitor_id,),
+        ) as cur:
+            rows = await cur.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def upsert_job_postings(
+    competitor_id: int, postings: list[dict], today: str
+) -> None:
+    """Insert new postings or update last_seen on existing ones."""
+    conn = await get_db()
+    for p in postings:
+        title = (p.get("title") or "").strip()
+        if not title:
+            continue
+        async with conn.execute(
+            "SELECT id FROM job_postings "
+            "WHERE competitor_id=? AND title=? AND status='active'",
+            (competitor_id, title),
+        ) as cur:
+            existing = await cur.fetchone()
+        if existing:
+            await conn.execute(
+                "UPDATE job_postings "
+                "SET last_seen=?, department=?, location=?, url=? "
+                "WHERE id=?",
+                (today, p.get("department"), p.get("location"), p.get("url"), existing["id"]),
+            )
+        else:
+            await conn.execute(
+                "INSERT INTO job_postings"
+                "(competitor_id, title, department, location, url, first_seen, last_seen) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (
+                    competitor_id, title,
+                    p.get("department"), p.get("location"), p.get("url"),
+                    today, today,
+                ),
+            )
+    await conn.commit()
+
+
+async def mark_job_postings_removed(
+    competitor_id: int, normalised_titles: list[str], today: str
+) -> None:
+    """Mark postings as removed when they disappear from the careers page."""
+    if not normalised_titles:
+        return
+    conn = await get_db()
+    for norm_title in normalised_titles:
+        await conn.execute(
+            "UPDATE job_postings "
+            "SET status='removed', last_seen=? "
+            "WHERE competitor_id=? AND lower(trim(title))=? AND status='active'",
+            (today, competitor_id, norm_title),
+        )
+    await conn.commit()

@@ -7,6 +7,7 @@ from models.schemas import (
     CompetitorOut,
     CompetitorUpdate,
     DigestOut,
+    JobPostingOut,
     SuggestionIn,
     SuggestionOut,
     TrackedIndividualIn,
@@ -157,3 +158,20 @@ async def suggest_competitor(
     data = body.model_dump()
     data["suggested_by"] = user["email"]
     return await db.create_suggestion(data)
+
+
+# ---------------------------------------------------------------------------
+# Job postings
+# ---------------------------------------------------------------------------
+
+@router.get("/{competitor_id}/job-postings", response_model=list[JobPostingOut])
+async def list_competitor_job_postings(
+    competitor_id: int,
+    status: str = "active",
+    user: dict = Depends(get_current_user),
+) -> list[dict]:
+    """Return job postings for a competitor. status param: 'active' | 'removed' | 'all'."""
+    comp = await db.get_competitor(competitor_id)
+    if not comp:
+        raise HTTPException(status_code=404, detail="Competitor not found")
+    return await db.list_job_postings(competitor_id, status=status if status != "all" else None)

@@ -114,6 +114,15 @@ export async function listDigests(competitorId: number): Promise<Digest[]> {
   return apiFetch<Digest[]>(`${API_BASE}/competitors/${competitorId}/digests`);
 }
 
+export async function listJobPostings(
+  competitorId: number,
+  status = "active"
+): Promise<JobPosting[]> {
+  return apiFetch<JobPosting[]>(
+    `${API_BASE}/competitors/${competitorId}/job-postings?status=${status}`
+  );
+}
+
 export async function suggestCompetitor(data: SuggestionInput): Promise<Suggestion> {
   return apiFetch<Suggestion>(`${API_BASE}/competitors/suggestions`, {
     method: "POST",
@@ -221,6 +230,19 @@ export interface DigestContent {
   social_activity: string;
   news_mentions: string[];
   sources: string[];
+  key_people_activity: Array<{ person: string; activity: string }>;
+  events_announced: Array<{ name: string; date?: string; detail: string }>;
+  product_moves: string[];
+  metrics_mentioned: string[];
+  website_changes: Array<{ page: string; summary: string }>;
+  hiring_signals?: {
+    available: boolean;
+    new_roles: string[];
+    removed_roles: string[];
+    total_active: number;
+    trend: string;
+    dept_breakdown: Record<string, number>;
+  };
 }
 
 export interface Competitor {
@@ -230,6 +252,9 @@ export interface Competitor {
   website_url?: string;
   twitter_handle?: string;
   linkedin_url?: string;
+  careers_url?: string;
+  pricing_url?: string;
+  product_url?: string;
   active: boolean;
   added_by?: string;
   created_at: string;
@@ -243,7 +268,22 @@ export interface CompetitorInput {
   website_url?: string;
   twitter_handle?: string;
   linkedin_url?: string;
+  careers_url?: string;
+  pricing_url?: string;
+  product_url?: string;
   individuals?: IndividualInput[];
+}
+
+export interface JobPosting {
+  id: number;
+  competitor_id: number;
+  title: string;
+  department?: string;
+  location?: string;
+  url?: string;
+  first_seen: string;
+  last_seen: string;
+  status: "active" | "removed";
 }
 
 export interface JobRun {

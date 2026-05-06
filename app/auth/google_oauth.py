@@ -90,7 +90,7 @@ def build_google_auth_url(state: str) -> str:
         "scope": "openid email profile",
         "state": state,
         "access_type": "offline",
-        "prompt": "select_account",
+        "hd": ALLOWED_EMAIL_DOMAIN,
     }
     return f"{GOOGLE_AUTH_URL}?{urlencode(params)}"
 

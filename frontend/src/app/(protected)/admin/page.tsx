@@ -30,12 +30,14 @@ export default function AdminPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [addForm, setAddForm] = useState({
     name: "", category: "e2e_cloud", website_url: "", twitter_handle: "", linkedin_url: "",
+    careers_url: "", pricing_url: "", product_url: "",
   });
   const [adding, setAdding] = useState(false);
 
   const [editTarget, setEditTarget] = useState<Competitor | null>(null);
   const [editForm, setEditForm] = useState({
     name: "", category: "e2e_cloud", website_url: "", twitter_handle: "", linkedin_url: "",
+    careers_url: "", pricing_url: "", product_url: "",
   });
   const [editing, setEditing] = useState(false);
 
@@ -66,10 +68,13 @@ export default function AdminPage() {
         website_url: addForm.website_url || undefined,
         twitter_handle: addForm.twitter_handle || undefined,
         linkedin_url: addForm.linkedin_url || undefined,
+        careers_url: addForm.careers_url || undefined,
+        pricing_url: addForm.pricing_url || undefined,
+        product_url: addForm.product_url || undefined,
       });
       setCompetitors((prev) => [...prev, c]);
       setShowAdd(false);
-      setAddForm({ name: "", category: "e2e_cloud", website_url: "", twitter_handle: "", linkedin_url: "" });
+      setAddForm({ name: "", category: "e2e_cloud", website_url: "", twitter_handle: "", linkedin_url: "", careers_url: "", pricing_url: "", product_url: "" });
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : "Failed to add competitor");
     } finally {
@@ -85,6 +90,9 @@ export default function AdminPage() {
       website_url: c.website_url ?? "",
       twitter_handle: c.twitter_handle ?? "",
       linkedin_url: c.linkedin_url ?? "",
+      careers_url: c.careers_url ?? "",
+      pricing_url: c.pricing_url ?? "",
+      product_url: c.product_url ?? "",
     });
   }
 
@@ -99,6 +107,9 @@ export default function AdminPage() {
         website_url: editForm.website_url || undefined,
         twitter_handle: editForm.twitter_handle || undefined,
         linkedin_url: editForm.linkedin_url || undefined,
+        careers_url: editForm.careers_url || undefined,
+        pricing_url: editForm.pricing_url || undefined,
+        product_url: editForm.product_url || undefined,
       });
       setCompetitors((prev) => prev.map((c) => c.id === updated.id ? updated : c));
       setEditTarget(null);
@@ -338,6 +349,36 @@ export default function AdminPage() {
                 </div>
               ))}
               <div>
+                <label className="text-xs font-medium text-slate-600 block mb-1">Careers page URL</label>
+                <input
+                  type="url"
+                  value={addForm.careers_url ?? ""}
+                  onChange={(e) => setAddForm((f) => ({ ...f, careers_url: e.target.value }))}
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="https://company.com/careers"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate-600 block mb-1">Pricing page URL</label>
+                <input
+                  type="url"
+                  value={addForm.pricing_url ?? ""}
+                  onChange={(e) => setAddForm((f) => ({ ...f, pricing_url: e.target.value }))}
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="https://company.com/pricing"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate-600 block mb-1">Product page URL</label>
+                <input
+                  type="url"
+                  value={addForm.product_url ?? ""}
+                  onChange={(e) => setAddForm((f) => ({ ...f, product_url: e.target.value }))}
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="https://company.com/product"
+                />
+              </div>
+              <div>
                 <label className="text-xs font-medium text-slate-600 block mb-2">Category *</label>
                 <div className="flex gap-4">
                   {(["e2e_cloud", "tir", "both"] as const).map((cat) => (
@@ -391,6 +432,36 @@ export default function AdminPage() {
                   />
                 </div>
               ))}
+              <div>
+                <label className="text-xs font-medium text-slate-600 block mb-1">Careers page URL</label>
+                <input
+                  type="url"
+                  value={editForm.careers_url ?? ""}
+                  onChange={(e) => setEditForm((f) => ({ ...f, careers_url: e.target.value }))}
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="https://company.com/careers"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate-600 block mb-1">Pricing page URL</label>
+                <input
+                  type="url"
+                  value={editForm.pricing_url ?? ""}
+                  onChange={(e) => setEditForm((f) => ({ ...f, pricing_url: e.target.value }))}
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="https://company.com/pricing"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate-600 block mb-1">Product page URL</label>
+                <input
+                  type="url"
+                  value={editForm.product_url ?? ""}
+                  onChange={(e) => setEditForm((f) => ({ ...f, product_url: e.target.value }))}
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="https://company.com/product"
+                />
+              </div>
               <div>
                 <label className="text-xs font-medium text-slate-600 block mb-2">Category *</label>
                 <div className="flex gap-4">
