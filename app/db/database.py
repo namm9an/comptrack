@@ -476,6 +476,26 @@ async def list_digests(competitor_id: int, limit: int = 20) -> list[dict]:
     return result
 
 
+async def list_digests_by_job(job_run_id: int) -> list[dict]:
+    """Return all digests for a job run, enriched with competitor_name."""
+    db = await get_db()
+    cursor = await db.execute(
+        """SELECT d.*, c.name AS competitor_name
+           FROM digests d
+           JOIN competitors c ON d.competitor_id = c.id
+           WHERE d.job_run_id = ?
+           ORDER BY c.name""",
+        (job_run_id,),
+    )
+    rows = await cursor.fetchall()
+    result = []
+    for r in rows:
+        d = dict(r)
+        d["digest"] = json.loads(d["digest_json"])
+        result.append(d)
+    return result
+
+
 # ---------------------------------------------------------------------------
 # Refresh tokens
 # ---------------------------------------------------------------------------

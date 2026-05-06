@@ -154,6 +154,10 @@ export async function deleteJob(id: number): Promise<void> {
   await apiFetch(`${API_BASE}/jobs/${id}`, { method: "DELETE" });
 }
 
+export async function getJobDigests(jobRunId: number): Promise<JobDigest[]> {
+  return apiFetch<JobDigest[]>(`${API_BASE}/jobs/${jobRunId}/digests`);
+}
+
 // ---------------------------------------------------------------------------
 // Admin
 // ---------------------------------------------------------------------------
@@ -295,6 +299,17 @@ export interface JobRun {
   started_at: string;
   completed_at?: string;
   error?: string;
+}
+
+export interface JobDigest {
+  id: number;
+  job_run_id: number;
+  competitor_id: number;
+  competitor_name: string;
+  period: "daily" | "weekly";
+  digest_date: string;
+  digest: DigestContent;
+  created_at: string;
 }
 
 export interface Suggestion {

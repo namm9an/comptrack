@@ -28,6 +28,18 @@ async def list_jobs(
     return await db.list_job_runs(competitor_id=competitor_id, limit=limit)
 
 
+@router.get("/{job_run_id}/digests")
+async def get_job_digests(
+    job_run_id: int,
+    user: dict = Depends(get_current_user),
+):
+    """Return all digests produced by a job run, with competitor names."""
+    job = await db.get_job_run(job_run_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job run not found")
+    return await db.list_digests_by_job(job_run_id)
+
+
 @router.get("/{job_run_id}", response_model=JobRunOut)
 async def get_job(
     job_run_id: int,
