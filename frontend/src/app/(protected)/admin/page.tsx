@@ -62,7 +62,7 @@ export default function AdminPage() {
     try {
       const c = await createCompetitor({
         name: addForm.name,
-        category: addForm.category as "e2e_cloud" | "tir",
+        category: addForm.category as "e2e_cloud" | "tir" | "both",
         website_url: addForm.website_url || undefined,
         twitter_handle: addForm.twitter_handle || undefined,
         linkedin_url: addForm.linkedin_url || undefined,
@@ -95,7 +95,7 @@ export default function AdminPage() {
     try {
       const updated = await updateCompetitor(editTarget.id, {
         name: editForm.name,
-        category: editForm.category as "e2e_cloud" | "tir",
+        category: editForm.category as "e2e_cloud" | "tir" | "both",
         website_url: editForm.website_url || undefined,
         twitter_handle: editForm.twitter_handle || undefined,
         linkedin_url: editForm.linkedin_url || undefined,
@@ -338,15 +338,20 @@ export default function AdminPage() {
                 </div>
               ))}
               <div>
-                <label className="text-xs font-medium text-slate-600 block mb-1">Category *</label>
-                <select
-                  value={addForm.category}
-                  onChange={(e) => setAddForm((f) => ({ ...f, category: e.target.value }))}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="e2e_cloud">E2E Cloud</option>
-                  <option value="tir">TIR</option>
-                </select>
+                <label className="text-xs font-medium text-slate-600 block mb-2">Category *</label>
+                <div className="flex gap-4">
+                  {(["e2e_cloud", "tir", "both"] as const).map((cat) => (
+                    <label key={cat} className="flex items-center gap-2 cursor-pointer">
+                      <input type="radio" name="add-category" value={cat}
+                        checked={addForm.category === cat}
+                        onChange={() => setAddForm((f) => ({ ...f, category: cat }))}
+                        className="accent-blue-600" />
+                      <span className="text-sm text-slate-700">
+                        {cat === "e2e_cloud" ? "E2E Cloud" : cat === "tir" ? "TIR" : "Both"}
+                      </span>
+                    </label>
+                  ))}
+                </div>
               </div>
               <div className="flex gap-2 pt-1">
                 <button type="button" onClick={() => setShowAdd(false)}
@@ -387,15 +392,20 @@ export default function AdminPage() {
                 </div>
               ))}
               <div>
-                <label className="text-xs font-medium text-slate-600 block mb-1">Category *</label>
-                <select
-                  value={editForm.category}
-                  onChange={(e) => setEditForm((f) => ({ ...f, category: e.target.value }))}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="e2e_cloud">E2E Cloud</option>
-                  <option value="tir">TIR</option>
-                </select>
+                <label className="text-xs font-medium text-slate-600 block mb-2">Category *</label>
+                <div className="flex gap-4">
+                  {(["e2e_cloud", "tir", "both"] as const).map((cat) => (
+                    <label key={cat} className="flex items-center gap-2 cursor-pointer">
+                      <input type="radio" name="edit-category" value={cat}
+                        checked={editForm.category === cat}
+                        onChange={() => setEditForm((f) => ({ ...f, category: cat }))}
+                        className="accent-blue-600" />
+                      <span className="text-sm text-slate-700">
+                        {cat === "e2e_cloud" ? "E2E Cloud" : cat === "tir" ? "TIR" : "Both"}
+                      </span>
+                    </label>
+                  ))}
+                </div>
               </div>
               <div className="flex gap-2 pt-1">
                 <button type="button" onClick={() => setEditTarget(null)}

@@ -15,7 +15,7 @@ export default function DashboardPage() {
   const [competitors, setCompetitors] = useState<Competitor[]>([]);
   const [fetching, setFetching] = useState(true);
   const [showSuggest, setShowSuggest] = useState(false);
-  const [suggestForm, setSuggestForm] = useState({ name: "", category: "e2e_cloud", website_url: "", notes: "" });
+  const [suggestForm, setSuggestForm] = useState({ name: "", category: "e2e_cloud" as "e2e_cloud" | "tir" | "both", website_url: "", notes: "" });
   const [suggesting, setSuggesting] = useState(false);
   const [suggestDone, setSuggestDone] = useState(false);
 
@@ -37,7 +37,7 @@ export default function DashboardPage() {
     try {
       await suggestCompetitor({
         name: suggestForm.name,
-        category: suggestForm.category as "e2e_cloud" | "tir",
+        category: suggestForm.category,
         website_url: suggestForm.website_url || undefined,
         notes: suggestForm.notes || undefined,
       });
@@ -45,7 +45,7 @@ export default function DashboardPage() {
       setTimeout(() => {
         setShowSuggest(false);
         setSuggestDone(false);
-        setSuggestForm({ name: "", category: "e2e_cloud", website_url: "", notes: "" });
+        setSuggestForm({ name: "", category: "e2e_cloud", website_url: "", notes: "" } as typeof suggestForm);
       }, 2000);
     } finally {
       setSuggesting(false);
@@ -55,6 +55,7 @@ export default function DashboardPage() {
   const grouped = {
     e2e_cloud: competitors.filter((c) => c.category === "e2e_cloud"),
     tir: competitors.filter((c) => c.category === "tir"),
+    both: competitors.filter((c) => c.category === "both"),
   };
 
   if (loading) {
@@ -104,29 +105,36 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className="space-y-10">
-              {(["e2e_cloud", "tir"] as const).map((cat) => (
-                <section key={cat}>
-                  <div className="flex items-center gap-3 mb-4">
-                    <h2 className="text-base font-semibold text-slate-800">
-                      {categoryLabel(cat)} Competitors
-                    </h2>
-                    <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
-                      {grouped[cat].length}
-                    </span>
-                  </div>
-                  {grouped[cat].length === 0 ? (
-                    <p className="text-sm text-slate-400 py-6 text-center border border-dashed border-slate-200 rounded-xl">
-                      No competitors tracked in this category yet.
-                    </p>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {grouped[cat].map((c) => (
-                        <CompetitorCard key={c.id} competitor={c} />
-                      ))}
+              {(["e2e_cloud", "tir", "both"] as const).map((cat) => {
+                const sectionColors = {
+                  e2e_cloud: "bg-blue-50 text-blue-700 border-blue-100",
+                  tir: "bg-violet-50 text-violet-700 border-violet-100",
+                  both: "bg-emerald-50 text-emerald-700 border-emerald-100",
+                };
+                return (
+                  <section key={cat}>
+                    <div className="flex items-center gap-3 mb-4">
+                      <span className={`text-xs font-semibold uppercase tracking-wide px-2.5 py-1 rounded-full border ${sectionColors[cat]}`}>
+                        {categoryLabel(cat)}
+                      </span>
+                      <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+                        {grouped[cat].length}
+                      </span>
                     </div>
-                  )}
-                </section>
-              ))}
+                    {grouped[cat].length === 0 ? (
+                      <p className="text-sm text-slate-400 py-6 text-center border border-dashed border-slate-200 rounded-xl">
+                        No competitors tracked in this category yet.
+                      </p>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {grouped[cat].map((c) => (
+                          <CompetitorCard key={c.id} competitor={c} />
+                        ))}
+                      </div>
+                    )}
+                  </section>
+                );
+              })}
             </div>
           )}
         </div>
@@ -154,15 +162,22 @@ export default function DashboardPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-slate-600 block mb-1">Category *</label>
-                  <select
-                    value={suggestForm.category}
-                    onChange={(e) => setSuggestForm((f) => ({ ...f, category: e.target.value }))}
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="e2e_cloud">E2E Cloud</option>
-                    <option value="tir">TIR</option>
-                  </select>
+                  <label className="text-xs font-medium text-slate-600 block mb-2">Category *</label>
+                  <div className="flex gap-4">
+                    {(["e2e_cloud", "tir", "both"] as const).map((cat) => (
+                      <label key={cat} className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="suggest-category"
+                          value={cat}
+                          checked={suggestForm.category === cat}
+                          onChange={() => setSuggestForm((f) => ({ ...f, category: cat }))}
+                          className="accent-blue-600"
+                        />
+                        <span className="text-sm text-slate-700">{categoryLabel(cat)}</span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
                 <div>
                   <label className="text-xs font-medium text-slate-600 block mb-1">Website URL</label>
