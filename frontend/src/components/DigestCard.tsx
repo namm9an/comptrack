@@ -232,62 +232,66 @@ export function DigestCard({ digest }: Props) {
         </div>
       )}
 
-      {d.hiring_signals?.available !== false && (d.hiring_signals?.total_active ?? 0) > 0 && (
-        <div>
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
-            <Briefcase size={11} /> Hiring Signals
-          </p>
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-slate-700 font-medium">
-                {d.hiring_signals.total_active} open roles
-              </span>
-              <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-full ${
-                d.hiring_signals.trend.startsWith("+")
-                  ? "bg-green-50 text-green-700"
-                  : d.hiring_signals.trend.startsWith("-")
-                  ? "bg-red-50 text-red-700"
-                  : "bg-slate-100 text-slate-600"
-              }`}>
-                {d.hiring_signals.trend} this period
-              </span>
+      {(() => {
+        const hs = d.hiring_signals;
+        if (!hs || hs.available === false || (hs.total_active ?? 0) === 0) return null;
+        return (
+          <div>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+              <Briefcase size={11} /> Hiring Signals
+            </p>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-slate-700 font-medium">
+                  {hs.total_active} open roles
+                </span>
+                <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-full ${
+                  hs.trend.startsWith("+")
+                    ? "bg-green-50 text-green-700"
+                    : hs.trend.startsWith("-")
+                    ? "bg-red-50 text-red-700"
+                    : "bg-slate-100 text-slate-600"
+                }`}>
+                  {hs.trend} this period
+                </span>
+              </div>
+              {(hs.new_roles?.length ?? 0) > 0 && (
+                <div>
+                  <p className="text-xs text-slate-400 mb-1">New</p>
+                  <div className="flex flex-wrap gap-1">
+                    {hs.new_roles!.map((role, i) => (
+                      <span key={i} className="bg-green-50 text-green-700 border border-green-200 rounded px-2 py-0.5 text-xs">
+                        {role}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {(hs.removed_roles?.length ?? 0) > 0 && (
+                <div>
+                  <p className="text-xs text-slate-400 mb-1">Removed</p>
+                  <div className="flex flex-wrap gap-1">
+                    {hs.removed_roles!.map((role, i) => (
+                      <span key={i} className="bg-red-50 text-red-700 border border-red-200 rounded px-2 py-0.5 text-xs">
+                        {role}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {Object.keys(hs.dept_breakdown ?? {}).length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {Object.entries(hs.dept_breakdown!).map(([dept, count]) => (
+                    <span key={dept} className="bg-slate-100 text-slate-600 rounded px-2 py-0.5 text-xs">
+                      {dept}: {count}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
-            {(d.hiring_signals.new_roles?.length ?? 0) > 0 && (
-              <div>
-                <p className="text-xs text-slate-400 mb-1">New</p>
-                <div className="flex flex-wrap gap-1">
-                  {d.hiring_signals.new_roles.map((role, i) => (
-                    <span key={i} className="bg-green-50 text-green-700 border border-green-200 rounded px-2 py-0.5 text-xs">
-                      {role}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-            {(d.hiring_signals.removed_roles?.length ?? 0) > 0 && (
-              <div>
-                <p className="text-xs text-slate-400 mb-1">Removed</p>
-                <div className="flex flex-wrap gap-1">
-                  {d.hiring_signals.removed_roles.map((role, i) => (
-                    <span key={i} className="bg-red-50 text-red-700 border border-red-200 rounded px-2 py-0.5 text-xs">
-                      {role}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-            {Object.keys(d.hiring_signals.dept_breakdown ?? {}).length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {Object.entries(d.hiring_signals.dept_breakdown).map(([dept, count]) => (
-                  <span key={dept} className="bg-slate-100 text-slate-600 rounded px-2 py-0.5 text-xs">
-                    {dept}: {count}
-                  </span>
-                ))}
-              </div>
-            )}
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {d.sources?.length > 0 && (
         <div>
