@@ -1,6 +1,46 @@
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Download } from "lucide-react";
 import type { Digest } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
+
+function digestToMarkdown(digest: Digest): string {
+  const d = digest.digest;
+  const lines: string[] = [
+    `# ${d.competitor ?? "Competitor"} — ${digest.period === "daily" ? "Daily" : "Weekly"} Digest`,
+    `**Date:** ${digest.digest_date}  `,
+    `**Generated:** ${formatDate(digest.created_at)}`,
+    "",
+  ];
+  if (d.summary) { lines.push("## Summary", d.summary, ""); }
+  if (d.highlights?.length) {
+    lines.push("## Highlights");
+    d.highlights.forEach((h: string) => lines.push(`- ${h}`));
+    lines.push("");
+  }
+  if (d.social_activity && d.social_activity !== "No data available") {
+    lines.push("## Social Activity", d.social_activity, "");
+  }
+  if (d.news_mentions?.length) {
+    lines.push("## News Mentions");
+    d.news_mentions.forEach((n: string) => lines.push(`- ${n}`));
+    lines.push("");
+  }
+  if (d.sources?.length) {
+    lines.push("## Sources");
+    d.sources.forEach((s: string) => lines.push(`- ${s}`));
+  }
+  return lines.join("\n");
+}
+
+function downloadMd(digest: Digest) {
+  const md = digestToMarkdown(digest);
+  const blob = new Blob([md], { type: "text/markdown" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${(digest.digest.competitor ?? "digest").toLowerCase().replace(/\s+/g, "-")}-${digest.period}-${digest.digest_date}.md`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 interface Props {
   digest: Digest;
@@ -93,6 +133,16 @@ export function DigestCard({ digest }: Props) {
           </div>
         </div>
       )}
+
+      <div className="pt-2 border-t border-slate-100">
+        <button
+          onClick={() => downloadMd(digest)}
+          className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 transition-colors"
+        >
+          <Download size={12} />
+          Download MD
+        </button>
+      </div>
     </div>
   );
 }

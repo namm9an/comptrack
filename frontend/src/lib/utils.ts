@@ -17,7 +17,10 @@ export function formatDate(isoString: string): string {
 }
 
 export function categoryLabel(cat: string): string {
-  return cat === "e2e_cloud" ? "E2E Cloud" : cat === "tir" ? "TIR" : cat;
+  if (cat === "e2e_cloud") return "E2E Cloud";
+  if (cat === "tir") return "TIR";
+  if (cat === "both") return "Both";
+  return cat;
 }
 
 export function statusColor(status: string): string {

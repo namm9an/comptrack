@@ -222,7 +222,7 @@ export interface DigestContent {
 export interface Competitor {
   id: number;
   name: string;
-  category: "e2e_cloud" | "tir";
+  category: "e2e_cloud" | "tir" | "both";
   website_url?: string;
   twitter_handle?: string;
   linkedin_url?: string;
@@ -235,7 +235,7 @@ export interface Competitor {
 
 export interface CompetitorInput {
   name: string;
-  category: "e2e_cloud" | "tir";
+  category: "e2e_cloud" | "tir" | "both";
   website_url?: string;
   twitter_handle?: string;
   linkedin_url?: string;
@@ -268,7 +268,7 @@ export interface Suggestion {
 
 export interface SuggestionInput {
   name: string;
-  category: "e2e_cloud" | "tir";
+  category: "e2e_cloud" | "tir" | "both";
   website_url?: string;
   notes?: string;
 }
