@@ -1,20 +1,30 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/lib/auth-context";
+import { getMe } from "@/lib/api";
 
 export default function LoginPage() {
-  const { user, loading } = useAuth();
   const router = useRouter();
+  const [checkingSession, setCheckingSession] = useState(true);
 
   useEffect(() => {
-    if (!loading && user) {
-      router.replace("/");
-    }
-  }, [user, loading, router]);
+    let active = true;
 
-  if (loading) {
+    getMe()
+      .then((user) => {
+        if (active && user) router.replace("/");
+      })
+      .finally(() => {
+        if (active) setCheckingSession(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [router]);
+
+  if (checkingSession) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
