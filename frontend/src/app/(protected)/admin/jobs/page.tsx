@@ -36,6 +36,8 @@ export default function JobHistoryPage() {
     </div>
   );
 
+  if (!user) return null;
+
   return (
     <div className="flex min-h-screen">
       <Navbar />
