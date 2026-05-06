@@ -3,6 +3,7 @@ docs/
 
 # Environment
 .env
+.env.dev
 .env.local
 .env.*.local
 
