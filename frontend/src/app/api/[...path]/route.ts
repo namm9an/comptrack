@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const BACKEND_URL = process.env.INTERNAL_API_URL ?? "http://backend:8081";
+const BACKEND_URL = process.env.INTERNAL_API_URL ?? "http://localhost:8081";
 
 // Headers that must not be forwarded to the backend — stripping these prevents
 // clients from spoofing X-Forwarded-For to bypass IP restriction (security C4/H1).

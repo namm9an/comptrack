@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const BACKEND_URL = process.env.INTERNAL_API_URL ?? "http://backend:8081";
+const BACKEND_URL = process.env.INTERNAL_API_URL ?? "http://localhost:8081";
 
 const STRIP_HEADERS = new Set([
   "host",
