@@ -467,3 +467,12 @@ async def delete_user_refresh_tokens(user_email: str) -> None:
     db = await get_db()
     await db.execute("DELETE FROM refresh_tokens WHERE user_email=?", (user_email,))
     await db.commit()
+
+
+async def delete_job_run(job_run_id: int) -> bool:
+    db = await get_db()
+    await db.execute("DELETE FROM tracking_raw WHERE job_run_id=?", (job_run_id,))
+    await db.execute("DELETE FROM digests WHERE job_run_id=?", (job_run_id,))
+    cur = await db.execute("DELETE FROM job_runs WHERE id=?", (job_run_id,))
+    await db.commit()
+    return cur.rowcount > 0

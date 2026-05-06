@@ -141,6 +141,10 @@ export async function triggerJob(competitorId: number | null, jobType: "daily" |
   });
 }
 
+export async function deleteJob(id: number): Promise<void> {
+  await apiFetch(`${API_BASE}/jobs/${id}`, { method: "DELETE" });
+}
+
 // ---------------------------------------------------------------------------
 // Admin
 // ---------------------------------------------------------------------------

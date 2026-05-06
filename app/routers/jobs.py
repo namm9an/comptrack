@@ -91,3 +91,19 @@ async def trigger_job(
 
     background_tasks.add_task(_run)
     return job_run
+
+
+@router.delete("/{job_run_id}", status_code=204)
+async def delete_job(
+    job_run_id: int,
+    user: dict = Depends(get_current_user),
+):
+    _require_admin(user)
+    job = await db.get_job_run(job_run_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job run not found")
+    if job["status"] == "running":
+        raise HTTPException(status_code=409, detail="Cannot delete a running job")
+    deleted = await db.delete_job_run(job_run_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Job run not found")
