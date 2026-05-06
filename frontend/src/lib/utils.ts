@@ -7,12 +7,13 @@ export function cn(...inputs: ClassValue[]) {
 
 export function formatDate(isoString: string): string {
   if (!isoString) return "—";
-  return new Date(isoString).toLocaleDateString("en-IN", {
+  return new Date(isoString).toLocaleString("en-IN", {
     day: "numeric",
     month: "short",
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: "Asia/Kolkata",
   });
 }
 
