@@ -406,6 +406,7 @@ export interface KBEntry {
   id: number;
   competitor_id: number;
   competitor_name: string;
+  competitor_category?: string;
   month: string;
   content: {
     executive_summary: string;

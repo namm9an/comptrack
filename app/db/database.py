@@ -803,11 +803,11 @@ async def get_report_items(
 # ---------------------------------------------------------------------------
 
 async def list_knowledge_base(competitor_id: Optional[int] = None) -> list[dict]:
-    """Return all KB entries, optionally filtered by competitor, with competitor name."""
+    """Return all KB entries, optionally filtered by competitor, with competitor name and category."""
     conn = await get_db()
     if competitor_id is not None:
         cursor = await conn.execute(
-            """SELECT kb.*, c.name AS competitor_name
+            """SELECT kb.*, c.name AS competitor_name, c.category AS competitor_category
                FROM knowledge_base kb
                JOIN competitors c ON kb.competitor_id = c.id
                WHERE kb.competitor_id = ?
@@ -816,7 +816,7 @@ async def list_knowledge_base(competitor_id: Optional[int] = None) -> list[dict]
         )
     else:
         cursor = await conn.execute(
-            """SELECT kb.*, c.name AS competitor_name
+            """SELECT kb.*, c.name AS competitor_name, c.category AS competitor_category
                FROM knowledge_base kb
                JOIN competitors c ON kb.competitor_id = c.id
                ORDER BY kb.month DESC, c.name"""
