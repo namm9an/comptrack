@@ -188,34 +188,20 @@ export default function JobHistoryPage() {
                           </p>
                         ) : (
                           <div>
-                            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
+                            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
                               {digests.length} competitor{digests.length !== 1 ? "s" : ""} processed
                             </p>
-                            <div className="space-y-2">
+                            <div className="flex flex-wrap gap-2">
                               {digests.map((d) => (
-                                <div
+                                <Link
                                   key={d.id}
-                                  className="bg-white border border-slate-200 rounded-lg px-4 py-3 flex items-start justify-between gap-4"
+                                  href={`/competitors/${d.competitor_id}`}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-white border border-slate-200 text-xs font-medium text-slate-700 hover:border-blue-400 hover:text-blue-600 transition-colors"
                                 >
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 mb-1">
-                                      <span className="font-medium text-slate-900 text-sm">{d.competitor_name}</span>
-                                      <span className="text-xs text-slate-400">{d.digest_date}</span>
-                                    </div>
-                                    {d.digest?.summary ? (
-                                      <p className="text-xs text-slate-500 line-clamp-2">{d.digest.summary}</p>
-                                    ) : (
-                                      <p className="text-xs text-slate-400 italic">No summary available</p>
-                                    )}
-                                  </div>
-                                  <Link
-                                    href={`/competitors/${d.competitor_id}`}
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="flex items-center gap-1 text-xs text-blue-600 hover:underline shrink-0"
-                                  >
-                                    View <ExternalLink size={11} />
-                                  </Link>
-                                </div>
+                                  {d.competitor_name}
+                                  <ExternalLink size={10} className="text-slate-400" />
+                                </Link>
                               ))}
                             </div>
                           </div>
