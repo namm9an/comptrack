@@ -24,36 +24,48 @@ async def generate_kb_for_competitor(
     digest_summaries = []
     for d in digests:
         content = d["digest"]
-        summary_parts = []
-        if content.get("summary"):
-            summary_parts.append(f"Summary: {content['summary']}")
-        if content.get("news_mentions"):
-            summary_parts.append(f"News: {'; '.join(content['news_mentions'][:5])}")
-        if content.get("product_moves"):
-            summary_parts.append(f"Product: {'; '.join(content['product_moves'][:3])}")
-        social = content.get("social_activity") or ""
-        if social and social != "No data available":
-            summary_parts.append(f"Social: {social[:200]}")
-        digest_summaries.append(f"[{d['digest_date']}] " + " | ".join(summary_parts))
+        parts = []
+        if content.get("pr"):
+            parts.append(f"PR: {'; '.join(content['pr'][:3])}")
+        elif content.get("news_mentions"):
+            parts.append(f"PR: {'; '.join(content['news_mentions'][:3])}")
+        if content.get("newsletter"):
+            parts.append(f"Newsletter: {'; '.join(content['newsletter'][:2])}")
+        if content.get("web_activity"):
+            parts.append(f"Web: {'; '.join(content['web_activity'][:2])}")
+        elif content.get("product_moves"):
+            parts.append(f"Web: {'; '.join(content['product_moves'][:2])}")
+        if content.get("social_media"):
+            parts.append(f"Social: {'; '.join(content['social_media'][:2])}")
+        elif content.get("social_activity") and content["social_activity"] != "No data available":
+            parts.append(f"Social: {content['social_activity'][:150]}")
+        digest_summaries.append(f"[{d['digest_date']}] " + " | ".join(parts))
 
     digest_text = "\n".join(digest_summaries)
 
     prompt = (
-        f"You are a competitive intelligence analyst. Based on the following daily/weekly "
-        f"intelligence digests for {competitor['name']} during {month}, compile a comprehensive "
-        f"monthly knowledge base entry.\n\n"
-        f"DIGESTS:\n{digest_text}\n\n"
-        f"Respond with a JSON object (no markdown, no code blocks) with exactly these keys:\n"
+        f"You are a competitive intelligence analyst. Based on the following monthly intelligence "
+        f"for {competitor['name']} during {month}, compile a monthly knowledge base entry.\n\n"
+        f"MONTHLY DATA:\n{digest_text}\n\n"
+        f"Return a JSON object (no markdown) with exactly these keys:\n"
         f"{{\n"
-        f'  "executive_summary": "2-3 sentence overview of the month",\n'
-        f'  "key_developments": ["list", "of", "major", "developments"],\n'
-        f'  "product_launches": ["list", "of", "product", "announcements"],\n'
-        f'  "hiring_trends": "summary of hiring activity",\n'
-        f'  "social_media_highlights": "notable social/PR activity",\n'
-        f'  "competitive_intelligence": "strategic insights for E2E Networks",\n'
-        f'  "news_coverage": ["notable", "news", "items"],\n'
+        f'  "executive_summary": "2-3 sentence overview of what happened this month",\n'
+        f'  "pr": ["key external media coverage points this month"],\n'
+        f'  "newsletter": ["key content published by the company this month"],\n'
+        f'  "web_activity": ["key website and product changes this month"],\n'
+        f'  "social_media": ["key social media highlights, speaker events, exec activity this month"],\n'
+        f'  "suggestions": [\n'
+        f'    "short actionable suggestion 1 for E2E Networks based on this intelligence",\n'
+        f'    "short actionable suggestion 2",\n'
+        f'    "short actionable suggestion 3"\n'
+        f'  ],\n'
         f'  "sources": []\n'
-        f"}}"
+        f"}}\n\n"
+        f"Rules:\n"
+        f"- suggestions: SHORT (one sentence max), actionable, specific to E2E Networks strategy\n"
+        f"- Each list field: max 5 items, focus on most strategically relevant\n"
+        f"- Compile across all digests — do not repeat the same point\n"
+        f"- Output valid JSON only"
     )
 
     messages = [

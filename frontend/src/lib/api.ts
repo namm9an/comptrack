@@ -261,16 +261,23 @@ export interface DigestContent {
   competitor: string;
   period: string;
   date: string;
-  summary: string;
-  highlights: string[];
-  social_activity: string;
-  news_mentions: string[];
-  sources: string[];
-  key_people_activity: Array<{ person: string; activity: string }>;
-  events_announced: Array<{ name: string; date?: string; detail: string }>;
-  product_moves: string[];
-  metrics_mentioned: string[];
-  website_changes: Array<{ page: string; summary: string }>;
+  // New format fields
+  pr?: string[];
+  newsletter?: string[];
+  web_activity?: string[];
+  social_media?: string[];
+  founder_pr?: string[];       // weekly only
+  funding?: string | null;     // weekly only
+  // Legacy fields (kept for backward compat display of old digests)
+  summary?: string;
+  highlights?: string[];
+  social_activity?: string;
+  news_mentions?: string[];
+  key_people_activity?: Array<{ person: string; activity: string }>;
+  events_announced?: Array<{ name: string; date?: string; detail: string }>;
+  product_moves?: string[];
+  metrics_mentioned?: string[];
+  website_changes?: Array<{ page: string; summary: string }>;
   hiring_signals?: {
     available: boolean;
     new_roles: string[];
@@ -279,6 +286,7 @@ export interface DigestContent {
     trend: string;
     dept_breakdown: Record<string, number>;
   };
+  sources?: string[];
 }
 
 export interface Competitor {
@@ -381,7 +389,7 @@ export interface HealthStatus {
 }
 
 export interface ReportItem {
-  category: "news" | "web" | "social";
+  category: "pr" | "newsletter" | "web" | "social";
   competitor_id: number;
   competitor_name: string;
   date: string;
@@ -396,14 +404,21 @@ export interface KBEntry {
   month: string;
   content: {
     executive_summary: string;
-    key_developments: string[];
-    product_launches: string[];
-    hiring_trends: string;
-    social_media_highlights: string;
-    competitive_intelligence: string;
-    news_coverage: string[];
+    pr: string[];
+    newsletter: string[];
+    web_activity: string[];
+    social_media: string[];
+    suggestions: string[];
+    sources: string[];
     competitor: string;
     generated_at: string;
+    // legacy fields kept optional
+    key_developments?: string[];
+    product_launches?: string[];
+    hiring_trends?: string;
+    social_media_highlights?: string;
+    competitive_intelligence?: string;
+    news_coverage?: string[];
   };
   generated_at: string;
   generated_by: string;

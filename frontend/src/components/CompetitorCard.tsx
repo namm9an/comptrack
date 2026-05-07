@@ -61,9 +61,9 @@ export function CompetitorCard({ competitor: c }: Props) {
       {digest ? (
         <div className="space-y-2">
           <p className="text-sm text-slate-600 line-clamp-2">{digest.summary}</p>
-          {digest.highlights?.length > 0 && (
+          {(digest.highlights?.length ?? 0) > 0 && (
             <ul className="space-y-0.5">
-              {digest.highlights.slice(0, 2).map((h, i) => (
+              {digest.highlights!.slice(0, 2).map((h, i) => (
                 <li key={i} className="text-xs text-slate-500 flex gap-1.5">
                   <span className="text-blue-400 mt-0.5">•</span>
                   <span className="line-clamp-1">{h}</span>

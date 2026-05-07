@@ -689,7 +689,13 @@ async def get_report_items(
     competitor_id: Optional[int] = None,
     days: int = 30,
 ) -> list[dict]:
-    """Return flat report items extracted from digests within the last `days` days."""
+    """Return flat report items extracted from digests within the last `days` days.
+
+    category accepts: "all" | "pr" | "newsletter" | "web" | "social"
+    New digest format uses: pr, newsletter, web_activity, social_media.
+    Backward-compat fallbacks handle old format fields: news_mentions,
+    website_changes, product_moves, social_activity, key_people_activity.
+    """
     conn = await get_db()
     if competitor_id is not None:
         cursor = await conn.execute(
@@ -733,33 +739,56 @@ async def get_report_items(
                 "period": period,
             }
 
-        if category in ("all", "news"):
-            for mention in content.get("news_mentions") or []:
-                if mention:
-                    items.append(_item("news", mention))
+        if category in ("all", "pr"):
+            # New format
+            for item in content.get("pr") or []:
+                if item:
+                    items.append(_item("pr", item))
+            # Backward compat: old format used news_mentions
+            if not content.get("pr") and not content.get("newsletter"):
+                for mention in content.get("news_mentions") or []:
+                    if mention:
+                        items.append(_item("pr", mention))
+
+        if category in ("all", "newsletter"):
+            for item in content.get("newsletter") or []:
+                if item:
+                    items.append(_item("newsletter", item))
 
         if category in ("all", "web"):
-            for change in content.get("website_changes") or []:
-                if isinstance(change, dict):
-                    page = change.get("page", "")
-                    summary = change.get("summary", "")
-                    text = f"[{page}] {summary}" if page else summary
-                    if text.strip():
-                        items.append(_item("web", text))
-            for move in content.get("product_moves") or []:
-                if move:
-                    items.append(_item("web", move))
+            # New format
+            for item in content.get("web_activity") or []:
+                if item:
+                    items.append(_item("web", item))
+            # Backward compat
+            if not content.get("web_activity"):
+                for change in content.get("website_changes") or []:
+                    if isinstance(change, dict):
+                        page = change.get("page", "")
+                        summary = change.get("summary", "")
+                        text = f"[{page}] {summary}" if page else summary
+                        if text.strip():
+                            items.append(_item("web", text))
+                for move in content.get("product_moves") or []:
+                    if move:
+                        items.append(_item("web", move))
 
         if category in ("all", "social"):
-            social = content.get("social_activity") or ""
-            if social and social != "No data available":
-                items.append(_item("social", social))
-            for kpa in content.get("key_people_activity") or []:
-                if isinstance(kpa, dict):
-                    person = kpa.get("person", "")
-                    activity = kpa.get("activity", "")
-                    if person and activity:
-                        items.append(_item("social", f"{person}: {activity}"))
+            # New format
+            for item in content.get("social_media") or []:
+                if item:
+                    items.append(_item("social", item))
+            # Backward compat
+            if not content.get("social_media"):
+                social = content.get("social_activity") or ""
+                if social and social != "No data available":
+                    items.append(_item("social", social))
+                for kpa in content.get("key_people_activity") or []:
+                    if isinstance(kpa, dict):
+                        person = kpa.get("person", "")
+                        activity = kpa.get("activity", "")
+                        if person and activity:
+                            items.append(_item("social", f"{person}: {activity}"))
 
     # Already ordered by date DESC from the query; stable sort preserves that
     items.sort(key=lambda x: x["date"], reverse=True)

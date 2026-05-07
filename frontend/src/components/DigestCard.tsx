@@ -1,6 +1,25 @@
-import { ExternalLink, Download, Users, Calendar, Zap, TrendingUp, AlertTriangle, Briefcase } from "lucide-react";
+import {
+  ExternalLink,
+  Download,
+  Users,
+  Calendar,
+  Zap,
+  TrendingUp,
+  AlertTriangle,
+  Briefcase,
+  Newspaper,
+  Mail,
+  Globe,
+  Share2,
+  Mic,
+  DollarSign,
+} from "lucide-react";
 import type { Digest } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
+
+// ---------------------------------------------------------------------------
+// Markdown export — handles both new and legacy formats
+// ---------------------------------------------------------------------------
 
 function digestToMarkdown(digest: Digest): string {
   const d = digest.digest;
@@ -10,64 +29,105 @@ function digestToMarkdown(digest: Digest): string {
     `**Generated:** ${formatDate(digest.created_at)}`,
     "",
   ];
-  if (d.summary) { lines.push("## Summary", d.summary, ""); }
-  if (d.highlights?.length) {
-    lines.push("## Highlights");
-    d.highlights.forEach((h: string) => lines.push(`- ${h}`));
-    lines.push("");
+
+  const isNew = d.pr !== undefined || d.newsletter !== undefined || d.social_media !== undefined;
+
+  if (isNew) {
+    if (d.pr?.length) {
+      lines.push("## PR & Media Coverage");
+      d.pr.forEach((item) => lines.push(`- ${item}`));
+      lines.push("");
+    }
+    if (d.newsletter?.length) {
+      lines.push("## Newsletter / Company Content");
+      d.newsletter.forEach((item) => lines.push(`- ${item}`));
+      lines.push("");
+    }
+    if (d.web_activity?.length) {
+      lines.push("## Web Activity");
+      d.web_activity.forEach((item) => lines.push(`- ${item}`));
+      lines.push("");
+    }
+    if (d.social_media?.length) {
+      lines.push("## Social Media");
+      d.social_media.forEach((item) => lines.push(`- ${item}`));
+      lines.push("");
+    }
+    if (d.founder_pr?.length) {
+      lines.push("## Founder / Exec PR");
+      d.founder_pr.forEach((item) => lines.push(`- ${item}`));
+      lines.push("");
+    }
+    if (d.funding) {
+      lines.push("## Funding");
+      lines.push(d.funding);
+      lines.push("");
+    }
+  } else {
+    // Legacy format
+    if (d.summary) { lines.push("## Summary", d.summary, ""); }
+    if (d.highlights?.length) {
+      lines.push("## Highlights");
+      d.highlights.forEach((h) => lines.push(`- ${h}`));
+      lines.push("");
+    }
+    if (d.social_activity && d.social_activity !== "No data available") {
+      lines.push("## Social Activity", d.social_activity, "");
+    }
+    if (d.news_mentions?.length) {
+      lines.push("## News Mentions");
+      d.news_mentions.forEach((n) => lines.push(`- ${n}`));
+      lines.push("");
+    }
+    if (d.key_people_activity?.length) {
+      lines.push("## Key People");
+      d.key_people_activity.forEach((p) =>
+        lines.push(`- **${p.person}**: ${p.activity}`)
+      );
+      lines.push("");
+    }
+    if (d.events_announced?.length) {
+      lines.push("## Events & Announcements");
+      d.events_announced.forEach((e) => {
+        const dateStr = e.date ? ` (${e.date})` : "";
+        lines.push(`- **${e.name}**${dateStr}: ${e.detail}`);
+      });
+      lines.push("");
+    }
+    if (d.product_moves?.length) {
+      lines.push("## Product Moves");
+      d.product_moves.forEach((m) => lines.push(`- ${m}`));
+      lines.push("");
+    }
+    if (d.metrics_mentioned?.length) {
+      lines.push("## Metrics");
+      d.metrics_mentioned.forEach((m) => lines.push(`- ${m}`));
+      lines.push("");
+    }
+    if (d.website_changes?.length) {
+      lines.push("## Website Changes");
+      d.website_changes.forEach((c) =>
+        lines.push(`- **${c.page}**: ${c.summary}`)
+      );
+      lines.push("");
+    }
   }
-  if (d.social_activity && d.social_activity !== "No data available") {
-    lines.push("## Social Activity", d.social_activity, "");
-  }
-  if (d.news_mentions?.length) {
-    lines.push("## News Mentions");
-    d.news_mentions.forEach((n: string) => lines.push(`- ${n}`));
-    lines.push("");
-  }
-  if (d.key_people_activity?.length) {
-    lines.push("## Key People");
-    d.key_people_activity.forEach((p: { person: string; activity: string }) =>
-      lines.push(`- **${p.person}**: ${p.activity}`)
-    );
-    lines.push("");
-  }
-  if (d.events_announced?.length) {
-    lines.push("## Events & Announcements");
-    d.events_announced.forEach((e: { name: string; date?: string; detail: string }) => {
-      const dateStr = e.date ? ` (${e.date})` : "";
-      lines.push(`- **${e.name}**${dateStr}: ${e.detail}`);
-    });
-    lines.push("");
-  }
-  if (d.product_moves?.length) {
-    lines.push("## Product Moves");
-    d.product_moves.forEach((m: string) => lines.push(`- ${m}`));
-    lines.push("");
-  }
-  if (d.metrics_mentioned?.length) {
-    lines.push("## Metrics");
-    d.metrics_mentioned.forEach((m: string) => lines.push(`- ${m}`));
-    lines.push("");
-  }
-  if (d.website_changes?.length) {
-    lines.push("## Website Changes");
-    d.website_changes.forEach((c: { page: string; summary: string }) =>
-      lines.push(`- **${c.page}**: ${c.summary}`)
-    );
-    lines.push("");
-  }
-  if (d.hiring_signals?.available !== false && d.hiring_signals?.total_active) {
-    const hs = d.hiring_signals;
+
+  // Hiring signals — shared by both formats
+  const hs = d.hiring_signals;
+  if (hs && hs.available !== false && (hs.total_active ?? 0) > 0) {
     lines.push("## Hiring Signals");
     lines.push(`Total: ${hs.total_active} open roles (${hs.trend})`);
     if (hs.new_roles?.length) lines.push(`New: ${hs.new_roles.join(", ")}`);
     if (hs.removed_roles?.length) lines.push(`Removed: ${hs.removed_roles.join(", ")}`);
     lines.push("");
   }
+
   if (d.sources?.length) {
     lines.push("## Sources");
-    d.sources.forEach((s: string) => lines.push(`- ${s}`));
+    d.sources.forEach((s) => lines.push(`- ${s}`));
   }
+
   return lines.join("\n");
 }
 
@@ -82,42 +142,267 @@ function downloadMd(digest: Digest) {
   URL.revokeObjectURL(url);
 }
 
-interface Props {
-  digest: Digest;
+// ---------------------------------------------------------------------------
+// Shared sub-components
+// ---------------------------------------------------------------------------
+
+function SourcesRow({ sources }: { sources: string[] }) {
+  if (!sources?.length) return null;
+  const seen = new Set<string>();
+  const deduped = sources.filter((src) => {
+    try {
+      let host = new URL(src).hostname.replace(/^www\./, "");
+      if (host === "twitter.com") host = "x.com";
+      if (seen.has(host)) return false;
+      seen.add(host);
+      return true;
+    } catch { return false; }
+  }).slice(0, 5);
+
+  if (!deduped.length) return null;
+  return (
+    <div>
+      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+        Sources
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {deduped.map((src, i) => {
+          let label = src;
+          try {
+            label = new URL(src).hostname.replace(/^www\./, "");
+            if (label === "twitter.com") label = "x.com";
+          } catch {}
+          return (
+            <a
+              key={i}
+              href={src}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline max-w-xs truncate"
+            >
+              <ExternalLink size={10} />
+              {label}
+            </a>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
-export function DigestCard({ digest }: Props) {
-  const { digest: d } = digest;
-
+function HiringSignalsBlock({
+  hs,
+}: {
+  hs: NonNullable<Digest["digest"]["hiring_signals"]>;
+}) {
+  if (hs.available === false || (hs.total_active ?? 0) === 0) return null;
   return (
-    <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-4">
-      <div className="flex items-center justify-between">
+    <div>
+      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+        <Briefcase size={11} /> Hiring Signals
+      </p>
+      <div className="space-y-2">
         <div className="flex items-center gap-2">
+          <span className="text-sm text-slate-700 font-medium">
+            {hs.total_active} open roles
+          </span>
           <span
-            className={`text-xs font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full ${
-              digest.period === "daily"
-                ? "bg-blue-50 text-blue-700"
-                : "bg-purple-50 text-purple-700"
+            className={`text-xs font-semibold px-1.5 py-0.5 rounded-full ${
+              hs.trend.startsWith("+")
+                ? "bg-green-50 text-green-700"
+                : hs.trend.startsWith("-")
+                ? "bg-red-50 text-red-700"
+                : "bg-slate-100 text-slate-600"
             }`}
           >
-            {digest.period}
+            {hs.trend} this period
           </span>
-          <span className="text-sm text-slate-500">{digest.digest_date}</span>
         </div>
-        <span className="text-xs text-slate-400">{formatDate(digest.created_at)}</span>
+        {(hs.new_roles?.length ?? 0) > 0 && (
+          <div>
+            <p className="text-xs text-slate-400 mb-1">New</p>
+            <div className="flex flex-wrap gap-1">
+              {hs.new_roles!.map((role, i) => (
+                <span
+                  key={i}
+                  className="bg-green-50 text-green-700 border border-green-200 rounded px-2 py-0.5 text-xs"
+                >
+                  {role}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+        {(hs.removed_roles?.length ?? 0) > 0 && (
+          <div>
+            <p className="text-xs text-slate-400 mb-1">Removed</p>
+            <div className="flex flex-wrap gap-1">
+              {hs.removed_roles!.map((role, i) => (
+                <span
+                  key={i}
+                  className="bg-red-50 text-red-700 border border-red-200 rounded px-2 py-0.5 text-xs"
+                >
+                  {role}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+        {Object.keys(hs.dept_breakdown ?? {}).length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {Object.entries(hs.dept_breakdown!).map(([dept, count]) => (
+              <span
+                key={dept}
+                className="bg-slate-100 text-slate-600 rounded px-2 py-0.5 text-xs"
+              >
+                {dept}: {count}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
+    </div>
+  );
+}
 
+// ---------------------------------------------------------------------------
+// New-format card body
+// ---------------------------------------------------------------------------
+
+function NewFormatBody({ digest }: { digest: Digest }) {
+  const d = digest.digest;
+
+  return (
+    <div className="space-y-4">
+      {/* PR */}
+      {(d.pr?.length ?? 0) > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+            <Newspaper size={11} className="text-blue-500" /> PR
+          </p>
+          <ul className="space-y-1">
+            {d.pr!.map((item, i) => (
+              <li key={i} className="text-sm text-slate-700 flex gap-2">
+                <span className="text-blue-500 mt-0.5 shrink-0">→</span>
+                {item}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Newsletter */}
+      {(d.newsletter?.length ?? 0) > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+            <Mail size={11} className="text-green-600" /> Newsletter
+          </p>
+          <ul className="space-y-1">
+            {d.newsletter!.map((item, i) => (
+              <li key={i} className="text-sm text-slate-700 flex gap-2">
+                <span className="text-green-600 mt-0.5 shrink-0">→</span>
+                {item}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Web Activity */}
+      {(d.web_activity?.length ?? 0) > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-1.5">
+          <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide flex items-center gap-1.5">
+            <Globe size={11} /> Web Activity
+          </p>
+          {d.web_activity!.map((item, i) => (
+            <div key={i} className="text-sm text-amber-900 flex gap-2">
+              <span className="text-amber-500 shrink-0">→</span>
+              {item}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Social Media */}
+      {(d.social_media?.length ?? 0) > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+            <Share2 size={11} className="text-purple-500" /> Social Media
+          </p>
+          <ul className="space-y-1">
+            {d.social_media!.map((item, i) => (
+              <li key={i} className="text-sm text-slate-700 flex gap-2">
+                <span className="text-purple-500 mt-0.5 shrink-0">→</span>
+                {item}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Weekly-only: Founder PR + Funding */}
+      {((d.founder_pr?.length ?? 0) > 0 || d.funding) && (
+        <div className="border-t border-dashed border-slate-200 pt-4 space-y-4">
+          <p className="text-xs text-slate-400 italic">weekly only</p>
+
+          {(d.founder_pr?.length ?? 0) > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+                <Mic size={11} className="text-indigo-500" /> Founder PR
+              </p>
+              <ul className="space-y-1">
+                {d.founder_pr!.map((item, i) => (
+                  <li key={i} className="text-sm text-slate-700 flex gap-2">
+                    <span className="text-indigo-500 mt-0.5 shrink-0">→</span>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {d.funding && (
+            <div>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+                <DollarSign size={11} className="text-emerald-600" /> Funding
+              </p>
+              <span className="inline-block bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg px-3 py-1.5 text-sm font-medium">
+                {d.funding}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Hiring Signals */}
+      {d.hiring_signals && <HiringSignalsBlock hs={d.hiring_signals} />}
+
+      {/* Sources */}
+      {(d.sources?.length ?? 0) > 0 && <SourcesRow sources={d.sources!} />}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Legacy-format card body (unchanged logic from old DigestCard)
+// ---------------------------------------------------------------------------
+
+function LegacyFormatBody({ digest }: { digest: Digest }) {
+  const d = digest.digest;
+
+  return (
+    <div className="space-y-4">
       {d.summary && (
         <p className="text-sm text-slate-700 leading-relaxed">{d.summary}</p>
       )}
 
-      {d.highlights?.length > 0 && (
+      {(d.highlights?.length ?? 0) > 0 && (
         <div>
           <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
             Highlights
           </p>
           <ul className="space-y-1">
-            {d.highlights.map((h, i) => (
+            {d.highlights!.map((h, i) => (
               <li key={i} className="text-sm text-slate-700 flex gap-2">
                 <span className="text-blue-500 mt-0.5">•</span>
                 {h}
@@ -136,13 +421,13 @@ export function DigestCard({ digest }: Props) {
         </div>
       )}
 
-      {d.news_mentions?.length > 0 && (
+      {(d.news_mentions?.length ?? 0) > 0 && (
         <div>
           <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
             News Mentions
           </p>
           <ul className="space-y-1">
-            {d.news_mentions.map((n, i) => (
+            {d.news_mentions!.map((n, i) => (
               <li key={i} className="text-sm text-slate-700 flex gap-2">
                 <span className="text-slate-400 mt-0.5">→</span>
                 {n}
@@ -158,10 +443,12 @@ export function DigestCard({ digest }: Props) {
             <Users size={11} /> Key People
           </p>
           <ul className="space-y-1">
-            {d.key_people_activity.map((item, i) => (
+            {d.key_people_activity!.map((item, i) => (
               <li key={i} className="text-sm text-slate-700 flex gap-2">
                 <span className="text-blue-500 mt-0.5">•</span>
-                <span><strong className="font-medium">{item.person}</strong>: {item.activity}</span>
+                <span>
+                  <strong className="font-medium">{item.person}</strong>: {item.activity}
+                </span>
               </li>
             ))}
           </ul>
@@ -174,11 +461,15 @@ export function DigestCard({ digest }: Props) {
             <Calendar size={11} /> Events & Announcements
           </p>
           <ul className="space-y-1.5">
-            {d.events_announced.map((evt, i) => (
+            {d.events_announced!.map((evt, i) => (
               <li key={i} className="text-sm text-slate-700">
                 <span className="font-medium">{evt.name}</span>
-                {evt.date && <span className="text-slate-400 text-xs ml-1.5">({evt.date})</span>}
-                {evt.detail && <span className="text-slate-600"> — {evt.detail}</span>}
+                {evt.date && (
+                  <span className="text-slate-400 text-xs ml-1.5">({evt.date})</span>
+                )}
+                {evt.detail && (
+                  <span className="text-slate-600"> — {evt.detail}</span>
+                )}
               </li>
             ))}
           </ul>
@@ -191,7 +482,7 @@ export function DigestCard({ digest }: Props) {
             <Zap size={11} /> Product Moves
           </p>
           <ul className="space-y-1">
-            {d.product_moves.map((move, i) => (
+            {d.product_moves!.map((move, i) => (
               <li key={i} className="text-sm text-slate-700 flex gap-2">
                 <span className="text-violet-500 mt-0.5">•</span>
                 {move}
@@ -207,8 +498,11 @@ export function DigestCard({ digest }: Props) {
             <TrendingUp size={11} /> Metrics
           </p>
           <div className="flex flex-wrap gap-1.5">
-            {d.metrics_mentioned.map((m, i) => (
-              <span key={i} className="bg-slate-100 text-slate-700 rounded px-2 py-0.5 text-xs font-mono">
+            {d.metrics_mentioned!.map((m, i) => (
+              <span
+                key={i}
+                className="bg-slate-100 text-slate-700 rounded px-2 py-0.5 text-xs font-mono"
+              >
                 {m}
               </span>
             ))}
@@ -221,7 +515,7 @@ export function DigestCard({ digest }: Props) {
           <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide flex items-center gap-1.5">
             <AlertTriangle size={11} /> Website Changes
           </p>
-          {d.website_changes.map((change, i) => (
+          {d.website_changes!.map((change, i) => (
             <div key={i} className="flex items-start gap-2">
               <span className="bg-amber-100 text-amber-700 rounded px-1.5 py-0.5 text-xs font-medium capitalize shrink-0">
                 {change.page}
@@ -232,102 +526,53 @@ export function DigestCard({ digest }: Props) {
         </div>
       )}
 
-      {(() => {
-        const hs = d.hiring_signals;
-        if (!hs || hs.available === false || (hs.total_active ?? 0) === 0) return null;
-        return (
-          <div>
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
-              <Briefcase size={11} /> Hiring Signals
-            </p>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-slate-700 font-medium">
-                  {hs.total_active} open roles
-                </span>
-                <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-full ${
-                  hs.trend.startsWith("+")
-                    ? "bg-green-50 text-green-700"
-                    : hs.trend.startsWith("-")
-                    ? "bg-red-50 text-red-700"
-                    : "bg-slate-100 text-slate-600"
-                }`}>
-                  {hs.trend} this period
-                </span>
-              </div>
-              {(hs.new_roles?.length ?? 0) > 0 && (
-                <div>
-                  <p className="text-xs text-slate-400 mb-1">New</p>
-                  <div className="flex flex-wrap gap-1">
-                    {hs.new_roles!.map((role, i) => (
-                      <span key={i} className="bg-green-50 text-green-700 border border-green-200 rounded px-2 py-0.5 text-xs">
-                        {role}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {(hs.removed_roles?.length ?? 0) > 0 && (
-                <div>
-                  <p className="text-xs text-slate-400 mb-1">Removed</p>
-                  <div className="flex flex-wrap gap-1">
-                    {hs.removed_roles!.map((role, i) => (
-                      <span key={i} className="bg-red-50 text-red-700 border border-red-200 rounded px-2 py-0.5 text-xs">
-                        {role}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {Object.keys(hs.dept_breakdown ?? {}).length > 0 && (
-                <div className="flex flex-wrap gap-1">
-                  {Object.entries(hs.dept_breakdown!).map(([dept, count]) => (
-                    <span key={dept} className="bg-slate-100 text-slate-600 rounded px-2 py-0.5 text-xs">
-                      {dept}: {count}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        );
-      })()}
+      {d.hiring_signals && <HiringSignalsBlock hs={d.hiring_signals} />}
 
-      {d.sources?.length > 0 && (
-        <div>
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
-            Sources
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {(() => {
-              const seen = new Set<string>();
-              return d.sources.filter((src: string) => {
-                try {
-                  let host = new URL(src).hostname.replace(/^www\./, "");
-                  if (host === "twitter.com") host = "x.com";
-                  if (seen.has(host)) return false;
-                  seen.add(host);
-                  return true;
-                } catch { return false; }
-              }).slice(0, 5).map((src: string, i: number) => {
-                let label = src;
-                try {
-                  label = new URL(src).hostname.replace(/^www\./, "");
-                  if (label === "twitter.com") label = "x.com";
-                } catch {}
-                return (
-                  <a key={i} href={src} target="_blank" rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline max-w-xs truncate">
-                    <ExternalLink size={10} />
-                    {label}
-                  </a>
-                );
-              });
-            })()}
-          </div>
+      {(d.sources?.length ?? 0) > 0 && <SourcesRow sources={d.sources!} />}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main export
+// ---------------------------------------------------------------------------
+
+interface Props {
+  digest: Digest;
+}
+
+export function DigestCard({ digest }: Props) {
+  const { digest: d } = digest;
+  const isNew =
+    d.pr !== undefined || d.newsletter !== undefined || d.social_media !== undefined;
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span
+            className={`text-xs font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full ${
+              digest.period === "daily"
+                ? "bg-blue-50 text-blue-700"
+                : "bg-purple-50 text-purple-700"
+            }`}
+          >
+            {digest.period}
+          </span>
+          <span className="text-sm text-slate-500">{digest.digest_date}</span>
         </div>
+        <span className="text-xs text-slate-400">{formatDate(digest.created_at)}</span>
+      </div>
+
+      {/* Body — new vs legacy */}
+      {isNew ? (
+        <NewFormatBody digest={digest} />
+      ) : (
+        <LegacyFormatBody digest={digest} />
       )}
 
+      {/* Footer */}
       <div className="pt-2 border-t border-slate-100">
         <button
           onClick={() => downloadMd(digest)}

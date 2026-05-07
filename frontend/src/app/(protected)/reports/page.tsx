@@ -13,11 +13,12 @@ import {
 import { Navbar } from "@/components/Navbar";
 import { formatDate } from "@/lib/utils";
 
-type TabKey = "news" | "web" | "social";
+type TabKey = "pr" | "newsletter" | "web" | "social";
 type DaysOption = 7 | 30 | 90;
 
 const TABS: { key: TabKey; label: string }[] = [
-  { key: "news", label: "News" },
+  { key: "pr", label: "PR & News" },
+  { key: "newsletter", label: "Newsletter" },
   { key: "web", label: "Web Activity" },
   { key: "social", label: "Social Media" },
 ];
@@ -25,13 +26,17 @@ const TABS: { key: TabKey; label: string }[] = [
 const DAYS_OPTIONS: DaysOption[] = [7, 30, 90];
 
 const CATEGORY_STYLES: Record<TabKey, { badge: string; dot: string }> = {
-  news: {
+  pr: {
     badge: "bg-blue-50 text-blue-700 border border-blue-100",
     dot: "bg-blue-500",
   },
-  web: {
+  newsletter: {
     badge: "bg-green-50 text-green-700 border border-green-100",
     dot: "bg-green-500",
+  },
+  web: {
+    badge: "bg-amber-50 text-amber-700 border border-amber-100",
+    dot: "bg-amber-500",
   },
   social: {
     badge: "bg-purple-50 text-purple-700 border border-purple-100",
@@ -43,7 +48,7 @@ export default function ReportsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
 
-  const [activeTab, setActiveTab] = useState<TabKey>("news");
+  const [activeTab, setActiveTab] = useState<TabKey>("pr");
   const [days, setDays] = useState<DaysOption>(30);
   const [competitorId, setCompetitorId] = useState<number | undefined>(undefined);
 
@@ -87,6 +92,7 @@ export default function ReportsPage() {
   if (!user) return null;
 
   const styles = CATEGORY_STYLES[activeTab];
+  const activeLabel = TABS.find((t) => t.key === activeTab)?.label ?? activeTab;
 
   return (
     <div className="flex min-h-screen">
@@ -98,7 +104,7 @@ export default function ReportsPage() {
           <div className="mb-6">
             <h1 className="text-2xl font-bold text-slate-900">Reports</h1>
             <p className="text-sm text-slate-500 mt-1">
-              Competitive intelligence across news, web, and social channels
+              Competitive intelligence across PR, newsletter, web, and social channels
             </p>
           </div>
 
@@ -169,8 +175,7 @@ export default function ReportsPage() {
           ) : items.length === 0 ? (
             <div className="py-24 text-center border border-dashed border-slate-200 rounded-xl">
               <p className="text-sm text-slate-400">
-                No {TABS.find((t) => t.key === activeTab)?.label.toLowerCase()} items found for the
-                selected filters.
+                No {activeLabel.toLowerCase()} items found for the selected filters.
               </p>
             </div>
           ) : (
@@ -182,9 +187,7 @@ export default function ReportsPage() {
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-center gap-2 min-w-0">
-                      <span
-                        className={`w-2 h-2 rounded-full shrink-0 ${styles.dot}`}
-                      />
+                      <span className={`w-2 h-2 rounded-full shrink-0 ${styles.dot}`} />
                       <Link
                         href={`/competitors/${item.competitor_id}`}
                         className="text-sm font-semibold text-slate-900 hover:text-blue-600 transition-colors truncate"
@@ -203,8 +206,10 @@ export default function ReportsPage() {
                       <span
                         className={`text-xs font-medium px-2 py-0.5 rounded-full ${styles.badge}`}
                       >
-                        {activeTab === "news"
-                          ? "News"
+                        {activeTab === "pr"
+                          ? "PR"
+                          : activeTab === "newsletter"
+                          ? "Newsletter"
                           : activeTab === "web"
                           ? "Web"
                           : "Social"}
