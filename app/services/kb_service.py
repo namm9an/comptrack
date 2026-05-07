@@ -50,10 +50,12 @@ async def generate_kb_for_competitor(
         f"Return a JSON object (no markdown) with exactly these keys:\n"
         f"{{\n"
         f'  "executive_summary": "2-3 sentence overview of what happened this month",\n'
-        f'  "pr": ["key external media coverage points this month"],\n'
-        f'  "newsletter": ["key content published by the company this month"],\n'
+        f'  "pr": ["key press releases issued by the company OR significant media coverage this month"],\n'
+        f'  "newsletter": ["key blog posts, newsletters, or long-form content published by the company this month"],\n'
         f'  "web_activity": ["key website and product changes this month"],\n'
-        f'  "social_media": ["key social media highlights, speaker events, exec activity this month"],\n'
+        f'  "social_media": [\n'
+        f'    "Prefix each item with [LinkedIn] or [X/Twitter]. Include: named exec posts (full name + topic), campaigns (#hashtag + purpose), events (name + date + what was said), customer case studies (customer name + result). Be specific, not generic."\n'
+        f'  ],\n'
         f'  "suggestions": [\n'
         f'    "short actionable suggestion 1 for E2E Networks based on this intelligence",\n'
         f'    "short actionable suggestion 2",\n'
@@ -62,6 +64,9 @@ async def generate_kb_for_competitor(
         f'  "sources": []\n'
         f"}}\n\n"
         f"Rules:\n"
+        f"- pr: include both company-issued press releases AND key media coverage — not blog posts\n"
+        f"- newsletter: only blog posts, newsletters, product docs — NOT press releases\n"
+        f"- social_media: be as specific as possible — platform prefix, exec names, campaign names, event names\n"
         f"- suggestions: SHORT (one sentence max), actionable, specific to E2E Networks strategy\n"
         f"- Each list field: max 5 items, focus on most strategically relevant\n"
         f"- Compile across all digests — do not repeat the same point\n"

@@ -40,7 +40,7 @@ const CLOUD_LABELS: Record<CloudFilter, string> = {
 const SECTIONS = [
   {
     key: "pr" as const,
-    label: "PR & News",
+    label: "Press Release & News",
     icon: Newspaper,
     iconColor: "text-blue-500",
     headerColor: "text-blue-700",

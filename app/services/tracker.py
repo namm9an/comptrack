@@ -36,25 +36,32 @@ For {competitor_name} (daily report, {date}), return exactly this JSON structure
   "period": "daily",
   "date": "{date}",
   "pr": [
-    "one-line headline or summary of each third-party news/press article mentioning this company"
+    "official press releases issued by the company OR significant third-party media coverage about them"
   ],
   "newsletter": [
-    "one-line summary of each blog post, press release, or content published BY the company themselves"
+    "blog posts, email newsletters, long-form content, or product documentation published BY the company"
   ],
   "web_activity": [],
   "social_media": [
-    "specific social activity: tweets, LinkedIn posts, speaker appearances, exec public statements"
+    "platform-specific social intelligence — format each item as: [LinkedIn] or [X/Twitter] followed by the specific detail"
   ],
   "sources": ["url1", "url2"]
 }}
 
 Rules:
-- pr: ONLY external media coverage (TechCrunch, Reuters, YourStory, etc.) — not company-authored content
-- newsletter: ONLY content published BY the company (their blog, press releases, product announcements)
-- web_activity: leave as empty [] — injected by system from change detection
-- social_media: named, specific activities (e.g. "CEO @handle posted about new GPU cluster launch", "Founder spoke at AWS Summit")
-- DO NOT include financial metrics, valuations, funding rounds, or spending data in any field
-- Max 5 items per category. Empty list [] if nothing found for a category.
+- pr: Include BOTH (a) official press releases / company announcements and (b) external media coverage (TechCrunch, Reuters, YourStory, etc.). One line per item.
+- newsletter: ONLY blog posts, newsletters, product docs published BY the company — NOT press releases (those go in pr).
+- web_activity: leave as empty [] — injected by system from change detection.
+- social_media: This is the most important field. Be as specific as possible:
+  * Always prefix with [LinkedIn] or [X/Twitter]
+  * Named executives: "[Platform] CEO/Founder [Full Name] posted about [specific topic] — key message: [one-sentence summary]"
+  * Campaigns: "[Platform] Promoted [#Hashtag or campaign name] — [what it's about, target message]"
+  * Events: "[Platform] [Person or company] spoke at / promoted [Event Name] ([date and location if found]) — topic: [what they said or discussed]"
+  * Customer stories: "[Platform] Shared [Customer Name] case study — [specific result or metric if mentioned]"
+  * Product/company news on social: "[Platform] Announced [specific thing with details]"
+  Extract up to 6 social items. Prioritise named exec activity, product campaigns, and events over generic reposts.
+- DO NOT include financial metrics, valuations, or funding rounds in any field.
+- Empty list [] if nothing found for a category.
 - Output valid JSON only — no markdown, no code blocks, no explanation outside the JSON.
 """
 
@@ -73,30 +80,37 @@ For {competitor_name} (weekly report, {date}), return exactly this JSON structur
   "period": "weekly",
   "date": "{date}",
   "pr": [
-    "one-line headline or summary of each third-party news/press article mentioning this company"
+    "official press releases issued by the company OR significant third-party media coverage about them"
   ],
   "newsletter": [
-    "one-line summary of each blog post, press release, or content published BY the company themselves"
+    "blog posts, email newsletters, long-form content, or product documentation published BY the company"
   ],
   "web_activity": [],
   "social_media": [
-    "specific social activity: tweets, LinkedIn posts, speaker appearances, exec public statements"
+    "platform-specific social intelligence — format each item as: [LinkedIn] or [X/Twitter] followed by the specific detail"
   ],
   "founder_pr": [
-    "detailed note on what founders/executives/key people said in press, interviews, podcasts, or events this week — include names and specifics"
+    "detailed note on founders/executives/key people in press, interviews, podcasts, or public events this week — include full name, title, event name, date, and what they specifically said or announced"
   ],
   "funding": null,
   "sources": ["url1", "url2"]
 }}
 
 Rules:
-- pr: ONLY external media (TechCrunch, Reuters, YourStory, etc.)
-- newsletter: ONLY content published BY the company
-- web_activity: leave as empty [] — injected by system
-- social_media: named, specific activities
-- founder_pr: MORE detailed than pr — include exec names, what they said, where
-- funding: string describing the funding round IF explicitly mentioned in the data, or null if no funding news found. Do NOT guess or infer.
-- Max 5 items per list field. Empty list [] if nothing found. null for funding if absent.
+- pr: Include BOTH (a) official press releases / company announcements and (b) external media coverage. One line per item. Max 5.
+- newsletter: ONLY blog posts, newsletters, product docs published BY the company — NOT press releases.
+- web_activity: leave as empty [] — injected by system.
+- social_media: Most important field — be as specific as possible:
+  * Always prefix with [LinkedIn] or [X/Twitter]
+  * Named executives: "[Platform] CEO/Founder [Full Name] posted about [specific topic] — key message: [one-sentence summary]"
+  * Campaigns: "[Platform] Promoted [#Hashtag or campaign name] — [what it's about, target message]"
+  * Events: "[Platform] [Person or company] spoke at / promoted [Event Name] ([date and location if found]) — topic: [what they said]"
+  * Customer stories: "[Platform] Shared [Customer Name] case study — [specific result or metric if mentioned]"
+  * Product news: "[Platform] Announced [specific thing with details]"
+  Up to 6 items. Prioritise exec activity, campaigns, and events.
+- founder_pr: MORE detailed than social_media — focus specifically on what executives said in external media (press, podcasts, interviews), not just social posts. Include full name, title, event/publication, and a 1-2 sentence summary of their statement.
+- funding: string describing the funding round IF explicitly mentioned in the data, or null. Do NOT guess.
+- Empty list [] if nothing found. null for funding if absent.
 - Output valid JSON only — no markdown, no code blocks.
 """
 

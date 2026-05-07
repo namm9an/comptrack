@@ -34,7 +34,7 @@ function digestToMarkdown(digest: Digest): string {
 
   if (isNew) {
     if (d.pr?.length) {
-      lines.push("## PR & Media Coverage");
+      lines.push("## Press Release & News");
       d.pr.forEach((item) => lines.push(`- ${item}`));
       lines.push("");
     }
@@ -278,7 +278,7 @@ function NewFormatBody({ digest }: { digest: Digest }) {
       {(d.pr?.length ?? 0) > 0 && (
         <div>
           <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
-            <Newspaper size={11} className="text-blue-500" /> PR
+            <Newspaper size={11} className="text-blue-500" /> Press Release & News
           </p>
           <ul className="space-y-1">
             {d.pr!.map((item, i) => (

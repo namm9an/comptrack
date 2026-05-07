@@ -143,7 +143,7 @@ function NewFormatEntry({
         {/* PR & News */}
         <div>
           <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-2">
-            PR & News
+            Press Release & News
           </p>
           <BulletList items={c.pr} bulletClass="bg-blue-400" />
         </div>
