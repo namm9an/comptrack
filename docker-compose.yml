@@ -1,4 +1,24 @@
 services:
+  # ── SearXNG ────────────────────────────────────────────────────────────────
+  # Dedicated CompTrack instance. No host port exposed — only reachable
+  # within comptrack_net. The existing SearXNG on the host (port 8889) remains
+  # untouched and is used by other applications.
+  searxng:
+    image: searxng/searxng:latest
+    container_name: comptrack_searxng
+    volumes:
+      - ./searxng:/etc/searxng:ro
+    environment:
+      - SEARXNG_BASE_URL=http://localhost:8080
+    networks:
+      - comptrack_net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
   # ── Backend ────────────────────────────────────────────────────────────────
   backend:
     build:
@@ -10,16 +30,16 @@ services:
     env_file:
       - .env
     environment:
-      # SearXNG runs natively on the host at port 8889 (shared with other apps).
-      # host.docker.internal resolves to the Docker host gateway on Linux via extra_hosts.
-      - SEARXNG_BASE_URL=http://host.docker.internal:8889
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      # Reach the SearXNG container through the internal Docker network
+      - SEARXNG_BASE_URL=http://searxng:8080
     volumes:
       # Bind-mount the existing SQLite data directory so no migration is needed
       - /root/comptrack/app/data:/app/data
     networks:
       - comptrack_net
+    depends_on:
+      searxng:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8081/api/health"]
