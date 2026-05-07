@@ -1,0 +1,32 @@
+# Version control
+.git
+.gitignore
+
+# Docs / markdown
+*.md
+docs/
+
+# Secrets (injected via env_file or environment: in compose, never baked into image)
+.env
+.env.*
+
+# Python artifacts
+venv/
+__pycache__/
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+.pytest_cache/
+*.egg-info/
+
+# SQLite data (mounted as bind volume at runtime)
+app/data/
+
+# Frontend build artifacts and dependencies
+frontend/node_modules/
+frontend/.next/
+frontend/*.tsbuildinfo
+
+# Docker / compose files themselves
+docker-compose*.yml
+Dockerfile*

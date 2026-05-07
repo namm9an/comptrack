@@ -1,55 +1,40 @@
 services:
-  searxng:
-    image: searxng/searxng:latest
-    container_name: comptrack_searxng
-    ports:
-      - "8889:8080"   # host 8889 → avoids collision with Market Research Agent; container binds 8080
-    volumes:
-      - ./searxng:/etc/searxng:ro
-    environment:
-      - SEARXNG_BASE_URL=http://localhost:8080
-    networks:
-      - comptrack_net
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8080/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
+  # ── Backend ────────────────────────────────────────────────────────────────
   backend:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: comptrack_backend
     ports:
-      - "8081:8081"
+      - "127.0.0.1:8081:8081"   # nginx on host proxies here; not exposed publicly
     env_file:
       - .env
     environment:
-      - SEARXNG_BASE_URL=http://searxng:8080
-      - FRONTEND_URL=http://localhost:3001
+      # SearXNG runs natively on the host at port 8889 (shared with other apps).
+      # host.docker.internal resolves to the Docker host gateway on Linux via extra_hosts.
+      - SEARXNG_BASE_URL=http://host.docker.internal:8889
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
-      - comptrack_data:/app/data
+      # Bind-mount the existing SQLite data directory so no migration is needed
+      - /root/comptrack/app/data:/app/data
     networks:
       - comptrack_net
-    depends_on:
-      searxng:
-        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8081/api/health"]
       interval: 30s
       timeout: 10s
-      retries: 3
+      retries: 5
 
+  # ── Frontend ───────────────────────────────────────────────────────────────
   frontend:
     build:
       context: .
       dockerfile: Dockerfile.frontend
     container_name: comptrack_frontend
     ports:
-      - "3001:3001"
+      - "127.0.0.1:3001:3001"   # nginx on host proxies here; not exposed publicly
     environment:
       - INTERNAL_API_URL=http://backend:8081
       - NEXT_PUBLIC_APP_NAME=CompTrack
@@ -59,9 +44,6 @@ services:
       backend:
         condition: service_healthy
     restart: unless-stopped
-
-volumes:
-  comptrack_data:
 
 networks:
   comptrack_net:
