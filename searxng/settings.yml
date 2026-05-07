@@ -13,6 +13,9 @@ search:
   autocomplete: ""
   default_lang: "en"
   max_page: 3
+  formats:
+    - html
+    - json
 
 server:
   port: 8888
@@ -23,8 +26,6 @@ server:
   http_protocol_version: "1.0"
   # Allow direct JSON API calls from the backend (no browser session required)
   limiter: false
-  formats:
-    - json
 
 ui:
   static_use_hash: false
