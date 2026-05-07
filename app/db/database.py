@@ -867,6 +867,16 @@ async def upsert_kb_entry(
     return await get_kb_entry(competitor_id, month)
 
 
+async def delete_kb_entry(kb_id: int) -> bool:
+    """Delete a KB entry by its primary key. Returns True if a row was deleted."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        "DELETE FROM knowledge_base WHERE id = ?", (kb_id,)
+    )
+    await conn.commit()
+    return cursor.rowcount > 0
+
+
 async def get_digests_for_month(competitor_id: int, month: str) -> list[dict]:
     """Return all digests for a competitor whose digest_date falls within month (YYYY-MM)."""
     conn = await get_db()

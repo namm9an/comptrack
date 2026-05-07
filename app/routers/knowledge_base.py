@@ -38,6 +38,18 @@ async def get_kb_entry(
     return entry
 
 
+@router.delete("/{kb_id}")
+async def delete_kb_entry(
+    kb_id: int,
+    user: dict = Depends(get_current_user),
+):
+    _require_admin(user)
+    deleted = await db.delete_kb_entry(kb_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Knowledge base entry not found")
+    return {"deleted": True, "id": kb_id}
+
+
 @router.post("/generate")
 async def generate_kb(
     competitor_id: Optional[int] = None,

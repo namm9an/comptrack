@@ -211,6 +211,10 @@ export async function listKnowledgeBase(competitorId?: number): Promise<KBEntry[
   return apiFetch<KBEntry[]>(`${API_BASE}/knowledge-base${q}`);
 }
 
+export async function deleteKbEntry(id: number): Promise<void> {
+  await apiFetch(`${API_BASE}/knowledge-base/${id}`, { method: "DELETE" });
+}
+
 export async function generateKnowledgeBase(competitorId?: number, month?: string): Promise<void> {
   const q = new URLSearchParams();
   if (competitorId) q.set("competitor_id", String(competitorId));
