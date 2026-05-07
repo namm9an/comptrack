@@ -6,21 +6,23 @@ import { useAuth } from "@/lib/auth-context";
 import { getReports, type ReportItem } from "@/lib/api";
 import { Navbar } from "@/components/Navbar";
 import { formatDate } from "@/lib/utils";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, Newspaper, Mail, Globe, Share2 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
 type CloudFilter = "all" | "e2e_cloud" | "tir";
-type TabKey = "pr" | "newsletter" | "web" | "social";
 type DaysOption = 7 | 30 | 90;
 
 interface CompetitorGroup {
   competitor_id: number;
   competitor_name: string;
   competitor_category: string;
-  items: Record<TabKey, ReportItem[]>;
+  pr: ReportItem[];
+  newsletter: ReportItem[];
+  web: ReportItem[];
+  social: ReportItem[];
   total: number;
 }
 
@@ -29,43 +31,54 @@ interface CompetitorGroup {
 // ---------------------------------------------------------------------------
 
 const DAYS_OPTIONS: DaysOption[] = [7, 30, 90];
-
-const TABS: { key: TabKey; label: string; color: string; dot: string; badge: string }[] = [
-  {
-    key: "pr",
-    label: "PR & News",
-    color: "text-blue-700",
-    dot: "bg-blue-500",
-    badge: "bg-blue-50 text-blue-700 border border-blue-100",
-  },
-  {
-    key: "newsletter",
-    label: "Newsletter",
-    color: "text-green-700",
-    dot: "bg-green-500",
-    badge: "bg-green-50 text-green-700 border border-green-100",
-  },
-  {
-    key: "web",
-    label: "Web Activity",
-    color: "text-amber-700",
-    dot: "bg-amber-500",
-    badge: "bg-amber-50 text-amber-700 border border-amber-100",
-  },
-  {
-    key: "social",
-    label: "Social Media",
-    color: "text-purple-700",
-    dot: "bg-purple-500",
-    badge: "bg-purple-50 text-purple-700 border border-purple-100",
-  },
-];
-
 const CLOUD_LABELS: Record<CloudFilter, string> = {
   all: "All",
   e2e_cloud: "E2E Cloud",
   tir: "TIR",
 };
+
+const SECTIONS = [
+  {
+    key: "pr" as const,
+    label: "PR & News",
+    icon: Newspaper,
+    iconColor: "text-blue-500",
+    headerColor: "text-blue-700",
+    dividerColor: "border-blue-100",
+    bgColor: "bg-blue-50",
+    dotColor: "bg-blue-400",
+  },
+  {
+    key: "newsletter" as const,
+    label: "Newsletter",
+    icon: Mail,
+    iconColor: "text-green-500",
+    headerColor: "text-green-700",
+    dividerColor: "border-green-100",
+    bgColor: "bg-green-50",
+    dotColor: "bg-green-400",
+  },
+  {
+    key: "web" as const,
+    label: "Web Activity",
+    icon: Globe,
+    iconColor: "text-amber-500",
+    headerColor: "text-amber-700",
+    dividerColor: "border-amber-100",
+    bgColor: "bg-amber-50",
+    dotColor: "bg-amber-400",
+  },
+  {
+    key: "social" as const,
+    label: "Social Media",
+    icon: Share2,
+    iconColor: "text-purple-500",
+    headerColor: "text-purple-700",
+    dividerColor: "border-purple-100",
+    bgColor: "bg-purple-50",
+    dotColor: "bg-purple-400",
+  },
+] as const;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -80,16 +93,18 @@ function groupByCompetitor(items: ReportItem[]): CompetitorGroup[] {
         competitor_id: item.competitor_id,
         competitor_name: item.competitor_name,
         competitor_category: item.competitor_category ?? "",
-        items: { pr: [], newsletter: [], web: [], social: [] },
+        pr: [],
+        newsletter: [],
+        web: [],
+        social: [],
         total: 0,
       });
     }
     const grp = map.get(item.competitor_id)!;
-    const key = item.category as TabKey;
-    if (key in grp.items) {
-      grp.items[key].push(item);
-      grp.total += 1;
-    }
+    if (item.category === "pr") { grp.pr.push(item); grp.total++; }
+    else if (item.category === "newsletter") { grp.newsletter.push(item); grp.total++; }
+    else if (item.category === "web") { grp.web.push(item); grp.total++; }
+    else if (item.category === "social") { grp.social.push(item); grp.total++; }
   }
 
   return Array.from(map.values()).sort((a, b) =>
@@ -105,127 +120,90 @@ function matchesCloud(grp: CompetitorGroup, filter: CloudFilter): boolean {
   return true;
 }
 
+function categoryLabel(cat: string): string {
+  if (cat === "e2e_cloud") return "E2E Cloud";
+  if (cat === "tir") return "TIR";
+  if (cat === "both") return "Both";
+  return cat;
+}
+
 // ---------------------------------------------------------------------------
-// CompetitorRow component
+// CompetitorRow — expands to show ALL 4 sections at once (no tabs)
 // ---------------------------------------------------------------------------
 
 function CompetitorRow({ grp }: { grp: CompetitorGroup }) {
   const [open, setOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<TabKey>("pr");
-
-  // Pick the first tab with data as the default when expanded
-  useEffect(() => {
-    if (open) {
-      const first = TABS.find((t) => grp.items[t.key].length > 0);
-      if (first) setActiveTab(first.key);
-    }
-  }, [open, grp]);
-
-  const tabItems = grp.items[activeTab];
-  const activeTabMeta = TABS.find((t) => t.key === activeTab)!;
 
   return (
-    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden transition-shadow hover:shadow-sm">
-      {/* Row header */}
+    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden hover:shadow-sm transition-shadow">
+      {/* Clickable header */}
       <button
         onClick={() => setOpen((v) => !v)}
         className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-slate-50 transition-colors"
       >
         <div className="flex items-center gap-3 min-w-0">
-          {open ? (
-            <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
-          ) : (
-            <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
-          )}
-          <span className="font-semibold text-slate-900 truncate">
-            {grp.competitor_name}
-          </span>
+          {open
+            ? <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
+            : <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />}
+          <span className="font-semibold text-slate-900">{grp.competitor_name}</span>
           {grp.competitor_category && (
             <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full shrink-0">
-              {grp.competitor_category === "e2e_cloud"
-                ? "E2E Cloud"
-                : grp.competitor_category === "tir"
-                ? "TIR"
-                : grp.competitor_category === "both"
-                ? "Both"
-                : grp.competitor_category}
+              {categoryLabel(grp.competitor_category)}
             </span>
           )}
         </div>
-
-        {/* Category count pills */}
-        <div className="flex items-center gap-2 shrink-0 ml-4">
-          {TABS.map((t) => {
-            const count = grp.items[t.key].length;
-            if (count === 0) return null;
-            return (
-              <span
-                key={t.key}
-                className={`text-xs font-medium px-2 py-0.5 rounded-full ${t.badge}`}
-              >
-                {t.label.split(" ")[0]} {count}
-              </span>
-            );
-          })}
-        </div>
+        <span className="text-xs text-slate-400 shrink-0 ml-4">
+          {grp.total} item{grp.total !== 1 ? "s" : ""}
+        </span>
       </button>
 
-      {/* Expanded content */}
+      {/* Full report — all 4 sections stacked */}
       {open && (
-        <div className="border-t border-slate-100">
-          {/* Inner tab bar */}
-          <div className="flex items-center gap-1 px-5 pt-3 pb-0 bg-slate-50 border-b border-slate-100">
-            {TABS.map((t) => {
-              const count = grp.items[t.key].length;
-              return (
-                <button
-                  key={t.key}
-                  onClick={() => setActiveTab(t.key)}
-                  className={`px-4 py-2 text-sm font-medium rounded-t-md transition-colors border-b-2 -mb-px ${
-                    activeTab === t.key
-                      ? `bg-white border-blue-500 ${t.color}`
-                      : "border-transparent text-slate-500 hover:text-slate-700 bg-transparent"
-                  }`}
-                >
-                  {t.label}
-                  {count > 0 && (
-                    <span className="ml-1.5 text-xs text-slate-400">({count})</span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Items list */}
-          <div className="px-5 py-4 space-y-3 bg-white">
-            {tabItems.length === 0 ? (
-              <p className="text-sm text-slate-400 py-4 text-center">
-                No {activeTabMeta.label.toLowerCase()} items in this period.
-              </p>
-            ) : (
-              tabItems.map((item, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-start gap-3 py-2 border-b border-slate-50 last:border-0"
-                >
-                  <span
-                    className={`w-1.5 h-1.5 rounded-full mt-2 shrink-0 ${activeTabMeta.dot}`}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm text-slate-700 leading-relaxed">
-                      {item.content}
-                    </p>
-                    <p className="text-xs text-slate-400 mt-1">
-                      {formatDate(item.date)}
-                      {item.period && (
-                        <span className="ml-2 capitalize">{item.period}</span>
-                      )}
-                    </p>
-                  </div>
+        <div className="border-t border-slate-100 divide-y divide-slate-50">
+          {SECTIONS.map((sec) => {
+            const items = grp[sec.key];
+            const Icon = sec.icon;
+            return (
+              <div key={sec.key} className="px-5 py-4">
+                {/* Section header */}
+                <div className={`flex items-center gap-2 mb-3`}>
+                  <Icon className={`w-4 h-4 ${sec.iconColor}`} />
+                  <span className={`text-sm font-semibold ${sec.headerColor}`}>
+                    {sec.label}
+                  </span>
+                  <span className="text-xs text-slate-400 ml-1">
+                    ({items.length})
+                  </span>
                 </div>
-              ))
-            )}
-          </div>
+
+                {/* Items */}
+                {items.length === 0 ? (
+                  <p className="text-sm text-slate-400 italic pl-6">
+                    No activity in this period.
+                  </p>
+                ) : (
+                  <ul className="space-y-2 pl-6">
+                    {items.map((item, idx) => (
+                      <li key={idx} className="flex items-start gap-2">
+                        <span className={`w-1.5 h-1.5 rounded-full mt-2 shrink-0 ${sec.dotColor}`} />
+                        <div>
+                          <p className="text-sm text-slate-700 leading-relaxed">
+                            {item.content}
+                          </p>
+                          <p className="text-xs text-slate-400 mt-0.5">
+                            {formatDate(item.date)}
+                            {item.period && (
+                              <span className="ml-2 capitalize">{item.period}</span>
+                            )}
+                          </p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -250,7 +228,6 @@ export default function ReportsPage() {
     if (!loading && !user) router.replace("/login");
   }, [user, loading, router]);
 
-  // Fetch all categories at once; filter client-side by cloud type
   useEffect(() => {
     if (!user) return;
     setFetching(true);
@@ -263,10 +240,10 @@ export default function ReportsPage() {
       .finally(() => setFetching(false));
   }, [user, days]);
 
-  const groups = useMemo(() => {
-    const all = groupByCompetitor(items);
-    return all.filter((g) => matchesCloud(g, cloudFilter));
-  }, [items, cloudFilter]);
+  const groups = useMemo(
+    () => groupByCompetitor(items).filter((g) => matchesCloud(g, cloudFilter)),
+    [items, cloudFilter]
+  );
 
   if (loading) {
     return (
@@ -284,15 +261,15 @@ export default function ReportsPage() {
 
       <main className="flex-1 p-8 overflow-y-auto">
         <div className="max-w-3xl mx-auto">
-          {/* Page header */}
+          {/* Header */}
           <div className="mb-6">
             <h1 className="text-2xl font-bold text-slate-900">Reports</h1>
             <p className="text-sm text-slate-500 mt-1">
-              Competitive intelligence — click any competitor to view their full report.
+              Click any competitor to view their full intelligence report.
             </p>
           </div>
 
-          {/* Controls row */}
+          {/* Controls */}
           <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
             {/* Cloud toggle */}
             <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
@@ -329,7 +306,7 @@ export default function ReportsPage() {
             </div>
           </div>
 
-          {/* Content */}
+          {/* Competitor list */}
           {fetching ? (
             <div className="flex items-center justify-center py-24">
               <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
