@@ -272,6 +272,7 @@ export interface DigestContent {
   social_media?: string[];
   founder_pr?: string[];       // weekly only
   funding?: string | null;     // weekly only
+  e2e_suggestions?: string[];  // actionable ideas for E2E Networks based on this competitor
   // Legacy fields (kept for backward compat display of old digests)
   summary?: string;
   highlights?: string[];

@@ -61,14 +61,19 @@ async def _do_search(params: dict, max_results: int) -> list[dict]:
 
 
 async def search_twitter_content(handle: str, company_name: str) -> list[dict]:
-    """Improved Twitter/X search — native profile URLs + syndicated content."""
+    """Twitter/X search — profile URL + news articles referencing tweets."""
+    # Direct profile (rarely indexed but worth trying)
     q1 = f"site:x.com/{handle} OR site:twitter.com/{handle}"
-    q2 = f'"{company_name}" tweeted OR "on twitter" OR "on x" announcement OR launch'
+    # News/blog articles quoting or embedding their tweets
+    q2 = f'"{company_name}" tweeted OR "posted on X" OR "X thread" OR "twitter thread" announcement campaign'
+    # Social media roundups that surface tweet content
+    q3 = f'"{company_name}" "@{handle}" OR "twitter.com/{handle}" 2026'
     r1 = await search(q1, categories="general", time_range="week")
     r2 = await search(q2, categories="general", time_range="week")
+    r3 = await search(q3, categories="general", time_range="week")
     seen: set[str] = set()
     deduped: list[dict] = []
-    for r in r1 + r2:
+    for r in r1 + r2 + r3:
         if r["url"] not in seen:
             seen.add(r["url"])
             deduped.append(r)
@@ -82,14 +87,48 @@ async def search_twitter(handle: str, company_name: str = "") -> list[dict]:
 
 async def search_linkedin(linkedin_url: str, company_name: str) -> list[dict]:
     """
-    Attempt LinkedIn search via SearXNG. LinkedIn frequently blocks scraping;
-    this is best-effort. Returns [] on failure — callers should handle gracefully.
+    LinkedIn content search — LinkedIn blocks direct scraping, so we find
+    LinkedIn posts via news articles and Google-indexed public posts.
     """
-    query = f'site:linkedin.com "{company_name}"'
-    results = await search(query, categories="general", time_range="month")
-    if not results:
-        log.info("LinkedIn search returned no results for %s (expected — LinkedIn blocks bots)", company_name)
-    return results
+    # Public LinkedIn posts that Google has indexed
+    q1 = f'site:linkedin.com/posts "{company_name}"'
+    # News articles summarising their LinkedIn activity
+    q2 = f'"{company_name}" "linkedin" post OR shared OR announced OR "this week" 2026'
+    # Campaign hashtags or named exec posts surfaced in press
+    q3 = f'"{company_name}" CEO OR founder linkedin "speaking at" OR "announced" OR "shared" OR "campaign"'
+    r1 = await search(q1, categories="general", time_range="month")
+    r2 = await search(q2, categories="general", time_range="week")
+    r3 = await search(q3, categories="general", time_range="week")
+    seen: set[str] = set()
+    deduped: list[dict] = []
+    for r in r1 + r2 + r3:
+        if r["url"] not in seen:
+            seen.add(r["url"])
+            deduped.append(r)
+    if not deduped:
+        log.info("LinkedIn search returned no results for %s", company_name)
+    return deduped[:MAX_SEARCH_RESULTS]
+
+
+async def search_social_activity(company_name: str) -> list[dict]:
+    """
+    Broad social media activity search — finds news articles, press summaries,
+    and blog roundups that reference what the company is posting/doing on social.
+    Runs in addition to platform-specific searches.
+    """
+    q1 = f'"{company_name}" "social media" campaign OR hashtag OR post OR announcement 2026'
+    q2 = f'"{company_name}" CEO OR founder "posted" OR "shared" OR "announced" linkedin OR twitter'
+    q3 = f'"{company_name}" event OR conference OR summit OR "case study" OR "partnership" linkedin 2026'
+    r1 = await search(q1, categories="general", time_range="week")
+    r2 = await search(q2, categories="general", time_range="week")
+    r3 = await search(q3, categories="general", time_range="week")
+    seen: set[str] = set()
+    deduped: list[dict] = []
+    for r in r1 + r2 + r3:
+        if r["url"] not in seen:
+            seen.add(r["url"])
+            deduped.append(r)
+    return deduped[:MAX_SEARCH_RESULTS]
 
 
 async def search_news(company_name: str) -> list[dict]:

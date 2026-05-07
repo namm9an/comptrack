@@ -183,22 +183,36 @@ function CompetitorRow({ grp }: { grp: CompetitorGroup }) {
                   </p>
                 ) : (
                   <ul className="space-y-2 pl-6">
-                    {items.map((item, idx) => (
-                      <li key={idx} className="flex items-start gap-2">
-                        <span className={`w-1.5 h-1.5 rounded-full mt-2 shrink-0 ${sec.dotColor}`} />
-                        <div>
-                          <p className="text-sm text-slate-700 leading-relaxed">
-                            {item.content}
-                          </p>
-                          <p className="text-xs text-slate-400 mt-0.5">
-                            {formatDate(item.date)}
-                            {item.period && (
-                              <span className="ml-2 capitalize">{item.period}</span>
-                            )}
-                          </p>
-                        </div>
-                      </li>
-                    ))}
+                    {items.map((item, idx) => {
+                      const isLinkedIn = item.content.startsWith("[LinkedIn]");
+                      const isTwitter = item.content.startsWith("[X/Twitter]") || item.content.startsWith("[Twitter]");
+                      const text = item.content
+                        .replace(/^\[LinkedIn\]\s*/, "")
+                        .replace(/^\[X\/Twitter\]\s*/, "")
+                        .replace(/^\[Twitter\]\s*/, "");
+                      return (
+                        <li key={idx} className="flex items-start gap-2">
+                          {sec.key === "social" && isLinkedIn ? (
+                            <span className="shrink-0 mt-0.5 text-xs font-semibold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">in</span>
+                          ) : sec.key === "social" && isTwitter ? (
+                            <span className="shrink-0 mt-0.5 text-xs font-semibold bg-slate-800 text-white px-1.5 py-0.5 rounded">𝕏</span>
+                          ) : (
+                            <span className={`w-1.5 h-1.5 rounded-full mt-2 shrink-0 ${sec.dotColor}`} />
+                          )}
+                          <div>
+                            <p className="text-sm text-slate-700 leading-relaxed">
+                              {sec.key === "social" ? text : item.content}
+                            </p>
+                            <p className="text-xs text-slate-400 mt-0.5">
+                              {formatDate(item.date)}
+                              {item.period && (
+                                <span className="ml-2 capitalize">{item.period}</span>
+                              )}
+                            </p>
+                          </div>
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
               </div>

@@ -45,6 +45,9 @@ For {competitor_name} (daily report, {date}), return exactly this JSON structure
   "social_media": [
     "platform-specific social intelligence — format each item as: [LinkedIn] or [X/Twitter] followed by the specific detail"
   ],
+  "e2e_suggestions": [
+    "short, actionable content or strategy idea for E2E Networks inspired by what this competitor is doing"
+  ],
   "sources": ["url1", "url2"]
 }}
 
@@ -59,7 +62,9 @@ Rules:
   * Events: "[Platform] [Person or company] spoke at / promoted [Event Name] ([date and location if found]) — topic: [what they said or discussed]"
   * Customer stories: "[Platform] Shared [Customer Name] case study — [specific result or metric if mentioned]"
   * Product/company news on social: "[Platform] Announced [specific thing with details]"
+  * If the company appears quiet on a platform, write: "[LinkedIn] No notable activity found this period" or "[X/Twitter] Account appears inactive this period"
   Extract up to 6 social items. Prioritise named exec activity, product campaigns, and events over generic reposts.
+- e2e_suggestions: Based on what {competitor_name} is doing, give E2E Networks 2-3 specific, actionable ideas. These can be content ideas (LinkedIn post topics, Twitter campaigns), strategic moves (partnerships, messaging angles), or product positioning angles. Be concrete — suggest actual post ideas or messaging, not vague advice. Max 3 items.
 - DO NOT include financial metrics, valuations, or funding rounds in any field.
 - Empty list [] if nothing found for a category.
 - Output valid JSON only — no markdown, no code blocks, no explanation outside the JSON.
@@ -92,6 +97,9 @@ For {competitor_name} (weekly report, {date}), return exactly this JSON structur
   "founder_pr": [
     "detailed note on founders/executives/key people in press, interviews, podcasts, or public events this week — include full name, title, event name, date, and what they specifically said or announced"
   ],
+  "e2e_suggestions": [
+    "short, actionable content or strategy idea for E2E Networks inspired by what this competitor is doing"
+  ],
   "funding": null,
   "sources": ["url1", "url2"]
 }}
@@ -107,9 +115,15 @@ Rules:
   * Events: "[Platform] [Person or company] spoke at / promoted [Event Name] ([date and location if found]) — topic: [what they said]"
   * Customer stories: "[Platform] Shared [Customer Name] case study — [specific result or metric if mentioned]"
   * Product news: "[Platform] Announced [specific thing with details]"
+  * If quiet: "[LinkedIn] No notable LinkedIn activity found this week" or "[X/Twitter] Account appears inactive this week — @handle"
   Up to 6 items. Prioritise exec activity, campaigns, and events.
 - founder_pr: MORE detailed than social_media — focus specifically on what executives said in external media (press, podcasts, interviews), not just social posts. Include full name, title, event/publication, and a 1-2 sentence summary of their statement.
-- funding: string describing the funding round IF explicitly mentioned in the data, or null. Do NOT guess.
+- e2e_suggestions: Based ONLY on what {competitor_name} is doing this week, give E2E Networks 3-5 specific, actionable ideas:
+  * Content ideas: suggest actual LinkedIn post angles or Twitter/X campaign hooks, referencing what the competitor did
+  * Positioning angles: where E2E can counter or differentiate based on this week's competitor activity
+  * Messaging: specific copy directions or India-first narratives that contrast with the competitor
+  Be concrete and specific — "Post a customer success story about [use case the competitor is targeting]" not "share customer stories". Max 5 items.
+- funding: string describing the funding round IF explicitly mentioned, or null. Do NOT guess.
 - Empty list [] if nothing found. null for funding if absent.
 - Output valid JSON only — no markdown, no code blocks.
 """
@@ -144,6 +158,15 @@ def _build_raw_text(collected: dict) -> tuple[str, list[str]]:
         elif source_type == "website_changes":
             # Handled separately — injected post-LLM, skip here
             pass
+        elif source_type == "social_activity_search":
+            # Label clearly so the LLM knows this is social media reference content
+            for r in data:
+                if r.get("content"):
+                    parts.append(
+                        f"[Social Media Reference: {r['title']} | {r['url']}]\n{_truncate(r['content'])}"
+                    )
+                    if r.get("url"):
+                        sources.append(r["url"])
         elif isinstance(data, list):
             for r in data:
                 if r.get("content"):
@@ -311,6 +334,15 @@ async def run_competitor_job(
     except Exception as exc:
         log.error("[%s] Press search error for %s: %s", job_run_id, company_name, exc)
         collected["press"] = []
+
+    # 1f-ii. Broad social activity search (always) — finds news articles referencing social posts
+    try:
+        social_activity = await search_service.search_social_activity(company_name)
+        collected["social_activity_search"] = social_activity
+        await db.save_raw(job_run_id, competitor_id, "searxng_social", {"results": social_activity})
+    except Exception as exc:
+        log.error("[%s] Social activity search error for %s: %s", job_run_id, company_name, exc)
+        collected["social_activity_search"] = []
 
     # 1g. Tracked individuals (daily + weekly — removed the weekly-only guard)
     if individuals:

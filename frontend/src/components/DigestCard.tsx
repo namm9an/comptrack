@@ -13,6 +13,7 @@ import {
   Share2,
   Mic,
   DollarSign,
+  Lightbulb,
 } from "lucide-react";
 import type { Digest } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
@@ -329,11 +330,42 @@ function NewFormatBody({ digest }: { digest: Digest }) {
           <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
             <Share2 size={11} className="text-purple-500" /> Social Media
           </p>
-          <ul className="space-y-1">
-            {d.social_media!.map((item, i) => (
-              <li key={i} className="text-sm text-slate-700 flex gap-2">
-                <span className="text-purple-500 mt-0.5 shrink-0">→</span>
-                {item}
+          <ul className="space-y-2">
+            {d.social_media!.map((item, i) => {
+              const isLinkedIn = item.startsWith("[LinkedIn]");
+              const isTwitter = item.startsWith("[X/Twitter]") || item.startsWith("[Twitter]");
+              const text = item
+                .replace(/^\[LinkedIn\]\s*/, "")
+                .replace(/^\[X\/Twitter\]\s*/, "")
+                .replace(/^\[Twitter\]\s*/, "");
+              return (
+                <li key={i} className="text-sm text-slate-700 flex gap-2 items-start">
+                  {isLinkedIn ? (
+                    <span className="shrink-0 mt-0.5 text-xs font-semibold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">in</span>
+                  ) : isTwitter ? (
+                    <span className="shrink-0 mt-0.5 text-xs font-semibold bg-slate-800 text-white px-1.5 py-0.5 rounded">𝕏</span>
+                  ) : (
+                    <span className="text-purple-500 mt-0.5 shrink-0">→</span>
+                  )}
+                  {text}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+
+      {/* E2E Suggestions */}
+      {(d.e2e_suggestions?.length ?? 0) > 0 && (
+        <div className="border border-teal-200 bg-teal-50 rounded-lg p-3">
+          <p className="text-xs font-semibold text-teal-700 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+            <Lightbulb size={11} /> Ideas for E2E Networks
+          </p>
+          <ul className="space-y-1.5">
+            {d.e2e_suggestions!.map((s, i) => (
+              <li key={i} className="text-sm text-teal-900 flex gap-2 items-start">
+                <span className="shrink-0 font-bold text-teal-600">{i + 1}.</span>
+                {s}
               </li>
             ))}
           </ul>
