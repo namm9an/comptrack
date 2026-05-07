@@ -21,6 +21,8 @@ server:
   base_url: false
   image_proxy: false
   http_protocol_version: "1.0"
+  # Allow direct JSON API calls from the backend (no browser session required)
+  limiter: false
   formats:
     - json
 
