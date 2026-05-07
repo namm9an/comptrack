@@ -13,7 +13,7 @@ from starlette.requests import Request
 from config import BACKEND_PORT, CORS_ORIGINS, LLM_BASE_URL, SEARXNG_BASE_URL
 from db.database import close_db, get_db
 from middleware.ip_restriction import IPRestrictionMiddleware
-from routers import admin, auth, competitors, jobs
+from routers import admin, auth, competitors, jobs, knowledge_base, reports
 from scheduler.jobs import start_scheduler, stop_scheduler
 from services import llm_service
 from auth.google_oauth import get_current_user
@@ -64,6 +64,8 @@ app.include_router(auth.router)
 app.include_router(competitors.router)
 app.include_router(jobs.router)
 app.include_router(admin.router)
+app.include_router(knowledge_base.router)
+app.include_router(reports.router)
 
 
 @app.get("/api/health", tags=["health"])

@@ -187,6 +187,38 @@ export async function getHealth(): Promise<HealthStatus> {
 }
 
 // ---------------------------------------------------------------------------
+// Reports
+// ---------------------------------------------------------------------------
+
+export async function getReports(params: {
+  category?: string;
+  competitor_id?: number;
+  days?: number;
+}): Promise<ReportItem[]> {
+  const q = new URLSearchParams();
+  if (params.category && params.category !== "all") q.set("category", params.category);
+  if (params.competitor_id) q.set("competitor_id", String(params.competitor_id));
+  if (params.days) q.set("days", String(params.days));
+  return apiFetch<ReportItem[]>(`${API_BASE}/reports?${q}`);
+}
+
+// ---------------------------------------------------------------------------
+// Knowledge Base
+// ---------------------------------------------------------------------------
+
+export async function listKnowledgeBase(competitorId?: number): Promise<KBEntry[]> {
+  const q = competitorId ? `?competitor_id=${competitorId}` : "";
+  return apiFetch<KBEntry[]>(`${API_BASE}/knowledge-base${q}`);
+}
+
+export async function generateKnowledgeBase(competitorId?: number, month?: string): Promise<void> {
+  const q = new URLSearchParams();
+  if (competitorId) q.set("competitor_id", String(competitorId));
+  if (month) q.set("month", month);
+  await apiFetch(`${API_BASE}/knowledge-base/generate?${q}`, { method: "POST" });
+}
+
+// ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
@@ -346,4 +378,33 @@ export interface HealthStatus {
   llm_endpoint: string;
   searxng_connected: boolean;
   searxng_endpoint: string;
+}
+
+export interface ReportItem {
+  category: "news" | "web" | "social";
+  competitor_id: number;
+  competitor_name: string;
+  date: string;
+  content: string;
+  period: string;
+}
+
+export interface KBEntry {
+  id: number;
+  competitor_id: number;
+  competitor_name: string;
+  month: string;
+  content: {
+    executive_summary: string;
+    key_developments: string[];
+    product_launches: string[];
+    hiring_trends: string;
+    social_media_highlights: string;
+    competitive_intelligence: string;
+    news_coverage: string[];
+    competitor: string;
+    generated_at: string;
+  };
+  generated_at: string;
+  generated_by: string;
 }

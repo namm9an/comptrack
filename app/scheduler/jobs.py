@@ -15,7 +15,7 @@ from apscheduler.triggers.cron import CronTrigger
 
 from config import SCHEDULER_TIMEZONE
 from db import database as db
-from services import tracker
+from services import kb_service, tracker
 
 log = logging.getLogger(__name__)
 
@@ -63,6 +63,15 @@ async def weekly_job() -> None:
     await _run_scheduled_job("weekly")
 
 
+async def monthly_kb_job() -> None:
+    log.info("Monthly KB generation started")
+    try:
+        await kb_service.generate_monthly_kb_all()
+        log.info("Monthly KB generation completed")
+    except Exception as exc:
+        log.error("Monthly KB generation failed: %s", exc)
+
+
 def start_scheduler() -> None:
     scheduler.add_job(
         daily_job,
@@ -84,9 +93,19 @@ def start_scheduler() -> None:
         misfire_grace_time=3600,
         max_instances=1,
     )
+    scheduler.add_job(
+        monthly_kb_job,
+        CronTrigger(day=1, hour=7, minute=0, timezone=SCHEDULER_TIMEZONE),
+        id="monthly_kb",
+        name="Monthly knowledge base generation",
+        replace_existing=True,
+        coalesce=True,
+        misfire_grace_time=3600,
+        max_instances=1,
+    )
     scheduler.start()
     log.info(
-        "Scheduler started — daily at 06:00 IST, weekly Mon 06:00 IST"
+        "Scheduler started — daily at 06:00 IST, weekly Mon 06:00 IST, monthly KB 1st 07:00 IST"
     )
 
 

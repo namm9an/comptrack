@@ -128,6 +128,17 @@ CREATE TABLE IF NOT EXISTS job_postings (
 );
 CREATE INDEX IF NOT EXISTS idx_job_postings_comp
     ON job_postings(competitor_id, status);
+
+CREATE TABLE IF NOT EXISTS knowledge_base (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    competitor_id   INTEGER NOT NULL REFERENCES competitors(id) ON DELETE CASCADE,
+    month           TEXT    NOT NULL,
+    content_json    TEXT    NOT NULL,
+    generated_at    TEXT    NOT NULL DEFAULT (datetime('now')),
+    generated_by    TEXT    NOT NULL DEFAULT 'scheduler',
+    UNIQUE(competitor_id, month)
+);
+CREATE INDEX IF NOT EXISTS idx_kb_comp_month ON knowledge_base(competitor_id, month);
 """
 
 SEED_COMPETITORS = [
@@ -667,3 +678,176 @@ async def mark_job_postings_removed(
             (today, competitor_id, norm_title),
         )
     await conn.commit()
+
+
+# ---------------------------------------------------------------------------
+# Reports helper
+# ---------------------------------------------------------------------------
+
+async def get_report_items(
+    category: str = "all",
+    competitor_id: Optional[int] = None,
+    days: int = 30,
+) -> list[dict]:
+    """Return flat report items extracted from digests within the last `days` days."""
+    conn = await get_db()
+    if competitor_id is not None:
+        cursor = await conn.execute(
+            """SELECT d.digest_date, d.digest_json, d.period,
+                      c.id AS competitor_id, c.name AS competitor_name
+               FROM digests d
+               JOIN competitors c ON d.competitor_id = c.id
+               WHERE d.competitor_id = ?
+                 AND d.digest_date >= date('now', ? || ' days')
+               ORDER BY d.digest_date DESC""",
+            (competitor_id, f"-{days}"),
+        )
+    else:
+        cursor = await conn.execute(
+            """SELECT d.digest_date, d.digest_json, d.period,
+                      c.id AS competitor_id, c.name AS competitor_name
+               FROM digests d
+               JOIN competitors c ON d.competitor_id = c.id
+               WHERE d.digest_date >= date('now', ? || ' days')
+               ORDER BY d.digest_date DESC""",
+            (f"-{days}",),
+        )
+    rows = await cursor.fetchall()
+
+    items: list[dict] = []
+    for row in rows:
+        r = dict(row)
+        content = json.loads(r["digest_json"])
+        comp_id = r["competitor_id"]
+        comp_name = r["competitor_name"]
+        date_str = r["digest_date"]
+        period = r["period"]
+
+        def _item(cat: str, text: str) -> dict:
+            return {
+                "category": cat,
+                "competitor_id": comp_id,
+                "competitor_name": comp_name,
+                "date": date_str,
+                "content": text,
+                "period": period,
+            }
+
+        if category in ("all", "news"):
+            for mention in content.get("news_mentions") or []:
+                if mention:
+                    items.append(_item("news", mention))
+
+        if category in ("all", "web"):
+            for change in content.get("website_changes") or []:
+                if isinstance(change, dict):
+                    page = change.get("page", "")
+                    summary = change.get("summary", "")
+                    text = f"[{page}] {summary}" if page else summary
+                    if text.strip():
+                        items.append(_item("web", text))
+            for move in content.get("product_moves") or []:
+                if move:
+                    items.append(_item("web", move))
+
+        if category in ("all", "social"):
+            social = content.get("social_activity") or ""
+            if social and social != "No data available":
+                items.append(_item("social", social))
+            for kpa in content.get("key_people_activity") or []:
+                if isinstance(kpa, dict):
+                    person = kpa.get("person", "")
+                    activity = kpa.get("activity", "")
+                    if person and activity:
+                        items.append(_item("social", f"{person}: {activity}"))
+
+    # Already ordered by date DESC from the query; stable sort preserves that
+    items.sort(key=lambda x: x["date"], reverse=True)
+    return items
+
+
+# ---------------------------------------------------------------------------
+# Knowledge base
+# ---------------------------------------------------------------------------
+
+async def list_knowledge_base(competitor_id: Optional[int] = None) -> list[dict]:
+    """Return all KB entries, optionally filtered by competitor, with competitor name."""
+    conn = await get_db()
+    if competitor_id is not None:
+        cursor = await conn.execute(
+            """SELECT kb.*, c.name AS competitor_name
+               FROM knowledge_base kb
+               JOIN competitors c ON kb.competitor_id = c.id
+               WHERE kb.competitor_id = ?
+               ORDER BY kb.month DESC""",
+            (competitor_id,),
+        )
+    else:
+        cursor = await conn.execute(
+            """SELECT kb.*, c.name AS competitor_name
+               FROM knowledge_base kb
+               JOIN competitors c ON kb.competitor_id = c.id
+               ORDER BY kb.month DESC, c.name"""
+        )
+    rows = await cursor.fetchall()
+    result = []
+    for row in rows:
+        entry = dict(row)
+        entry["content"] = json.loads(entry["content_json"])
+        result.append(entry)
+    return result
+
+
+async def get_kb_entry(competitor_id: int, month: str) -> Optional[dict]:
+    """Return the KB entry for a specific competitor and month, or None."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        """SELECT kb.*, c.name AS competitor_name
+           FROM knowledge_base kb
+           JOIN competitors c ON kb.competitor_id = c.id
+           WHERE kb.competitor_id = ? AND kb.month = ?""",
+        (competitor_id, month),
+    )
+    row = await cursor.fetchone()
+    if not row:
+        return None
+    entry = dict(row)
+    entry["content"] = json.loads(entry["content_json"])
+    return entry
+
+
+async def upsert_kb_entry(
+    competitor_id: int, month: str, content_json: str, generated_by: str
+) -> dict:
+    """Insert or replace a KB entry and return it."""
+    conn = await get_db()
+    now = datetime.now(timezone.utc).isoformat()
+    await conn.execute(
+        """INSERT INTO knowledge_base (competitor_id, month, content_json, generated_at, generated_by)
+           VALUES (?, ?, ?, ?, ?)
+           ON CONFLICT(competitor_id, month) DO UPDATE SET
+               content_json = excluded.content_json,
+               generated_at = excluded.generated_at,
+               generated_by = excluded.generated_by""",
+        (competitor_id, month, content_json, now, generated_by),
+    )
+    await conn.commit()
+    return await get_kb_entry(competitor_id, month)
+
+
+async def get_digests_for_month(competitor_id: int, month: str) -> list[dict]:
+    """Return all digests for a competitor whose digest_date falls within month (YYYY-MM)."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        """SELECT * FROM digests
+           WHERE competitor_id = ? AND digest_date LIKE ?
+           ORDER BY digest_date""",
+        (competitor_id, f"{month}%"),
+    )
+    rows = await cursor.fetchall()
+    result = []
+    for row in rows:
+        d = dict(row)
+        d["digest"] = json.loads(d["digest_json"])
+        result.append(d)
+    return result
