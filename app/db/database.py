@@ -700,7 +700,7 @@ async def get_report_items(
     if competitor_id is not None:
         cursor = await conn.execute(
             """SELECT d.digest_date, d.digest_json, d.period,
-                      c.id AS competitor_id, c.name AS competitor_name
+                      c.id AS competitor_id, c.name AS competitor_name, c.category AS competitor_category
                FROM digests d
                JOIN competitors c ON d.competitor_id = c.id
                WHERE d.competitor_id = ?
@@ -711,7 +711,7 @@ async def get_report_items(
     else:
         cursor = await conn.execute(
             """SELECT d.digest_date, d.digest_json, d.period,
-                      c.id AS competitor_id, c.name AS competitor_name
+                      c.id AS competitor_id, c.name AS competitor_name, c.category AS competitor_category
                FROM digests d
                JOIN competitors c ON d.competitor_id = c.id
                WHERE d.digest_date >= date('now', ? || ' days')
@@ -729,11 +729,14 @@ async def get_report_items(
         date_str = r["digest_date"]
         period = r["period"]
 
+        comp_category = r.get("competitor_category", "")
+
         def _item(cat: str, text: str) -> dict:
             return {
                 "category": cat,
                 "competitor_id": comp_id,
                 "competitor_name": comp_name,
+                "competitor_category": comp_category,
                 "date": date_str,
                 "content": text,
                 "period": period,

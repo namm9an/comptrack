@@ -392,6 +392,7 @@ export interface ReportItem {
   category: "pr" | "newsletter" | "web" | "social";
   competitor_id: number;
   competitor_name: string;
+  competitor_category?: string;
   date: string;
   content: string;
   period: string;

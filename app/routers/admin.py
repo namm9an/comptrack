@@ -67,4 +67,17 @@ async def review_suggestion(
     result = await db.review_suggestion(suggestion_id, body.status, user["email"])
     if not result:
         raise HTTPException(status_code=404, detail="Suggestion not found")
+
+    # Auto-create competitor when approved — check by name to avoid duplicates
+    if body.status == "approved":
+        existing = await db.list_competitors(active_only=False)
+        names = {c["name"].lower() for c in existing}
+        if result["name"].lower() not in names:
+            await db.create_competitor({
+                "name": result["name"],
+                "category": result["category"],
+                "website_url": result.get("website_url"),
+                "added_by": result["suggested_by"],
+            })
+
     return result
