@@ -730,6 +730,9 @@ async def get_report_items(
         period = r["period"]
 
         comp_category = r.get("competitor_category", "")
+        # Attach the first source URL from the digest so items are traceable
+        digest_sources = content.get("sources") or []
+        primary_source = digest_sources[0] if digest_sources else None
 
         def _item(cat: str, text: str) -> dict:
             return {
@@ -740,6 +743,7 @@ async def get_report_items(
                 "date": date_str,
                 "content": text,
                 "period": period,
+                "source_url": primary_source,
             }
 
         if category in ("all", "pr"):

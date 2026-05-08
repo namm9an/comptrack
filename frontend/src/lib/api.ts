@@ -401,6 +401,7 @@ export interface ReportItem {
   date: string;
   content: string;
   period: string;
+  source_url?: string;
 }
 
 export interface KBEntry {
