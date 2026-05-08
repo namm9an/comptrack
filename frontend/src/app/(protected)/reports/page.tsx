@@ -2,20 +2,38 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronRight, ExternalLink } from "lucide-react";
+import { ChevronDown, ChevronRight, Download, X } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { getReports, type ReportItem } from "@/lib/api";
 import { Navbar } from "@/components/Navbar";
 import { formatDateOnly, formatTimeIST } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
-// Types & constants
+// Types
 // ---------------------------------------------------------------------------
 
 type CloudFilter = "all" | "e2e_cloud" | "tir";
-type DaysOption = 7 | 30 | 90;
+type DaysOption = 7 | 30;
 
-const DAYS_OPTIONS: DaysOption[] = [7, 30, 90];
+interface CompanyGroup {
+  competitor_id: number;
+  competitor_name: string;
+  competitor_category: string;
+  pr: ReportItem[];
+  newsletter: ReportItem[];
+  web: ReportItem[];
+  social: ReportItem[];
+}
+
+interface ReportGroup {
+  date: string;
+  runTime: string;
+  companies: CompanyGroup[];
+}
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
 
 const CLOUD_LABELS: Record<CloudFilter, string> = {
   all: "All",
@@ -23,133 +41,225 @@ const CLOUD_LABELS: Record<CloudFilter, string> = {
   tir: "TIR",
 };
 
-const CATEGORY_META: Record<string, { label: string; badge: string }> = {
-  pr: {
-    label: "Press Release",
-    badge: "bg-blue-50 text-blue-700 border border-blue-100",
-  },
-  newsletter: {
-    label: "Newsletter",
-    badge: "bg-green-50 text-green-700 border border-green-100",
-  },
-  web: {
-    label: "Web Activity",
-    badge: "bg-amber-50 text-amber-700 border border-amber-100",
-  },
-  social: {
-    label: "Social Media",
-    badge: "bg-purple-50 text-purple-700 border border-purple-100",
-  },
+const SECTION_LABELS: Record<string, string> = {
+  pr: "Press Release & News",
+  newsletter: "Newsletter",
+  web: "Web Activity",
+  social: "Social Media",
 };
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function matchesCloud(item: ReportItem, filter: CloudFilter): boolean {
+function matchesCloud(cat: string, filter: CloudFilter): boolean {
   if (filter === "all") return true;
-  const cat = (item.competitor_category ?? "").toLowerCase();
-  if (filter === "e2e_cloud") return cat === "e2e_cloud" || cat === "both";
-  if (filter === "tir") return cat === "tir" || cat === "both";
+  const c = (cat ?? "").toLowerCase();
+  if (filter === "e2e_cloud") return c === "e2e_cloud" || c === "both";
+  if (filter === "tir") return c === "tir" || c === "both";
   return true;
 }
 
-function sourceDomain(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return url;
+function buildGroups(items: ReportItem[], cloudFilter: CloudFilter): ReportGroup[] {
+  // date → company_id → CompanyGroup
+  const dateMap = new Map<string, Map<number, CompanyGroup>>();
+  const runTimes = new Map<string, string>();
+
+  for (const item of items) {
+    if (!matchesCloud(item.competitor_category ?? "", cloudFilter)) continue;
+
+    if (!dateMap.has(item.date)) dateMap.set(item.date, new Map());
+    const compMap = dateMap.get(item.date)!;
+
+    // Track earliest created_at per date as the run time
+    if (item.created_at && !runTimes.has(item.date)) {
+      runTimes.set(item.date, item.created_at);
+    }
+
+    if (!compMap.has(item.competitor_id)) {
+      compMap.set(item.competitor_id, {
+        competitor_id: item.competitor_id,
+        competitor_name: item.competitor_name,
+        competitor_category: item.competitor_category ?? "",
+        pr: [], newsletter: [], web: [], social: [],
+      });
+    }
+    const grp = compMap.get(item.competitor_id)!;
+    if (item.category === "pr") grp.pr.push(item);
+    else if (item.category === "newsletter") grp.newsletter.push(item);
+    else if (item.category === "web") grp.web.push(item);
+    else if (item.category === "social") grp.social.push(item);
   }
+
+  return Array.from(dateMap.entries())
+    .sort(([a], [b]) => b.localeCompare(a))
+    .map(([date, compMap]) => ({
+      date,
+      runTime: runTimes.get(date) ?? "",
+      companies: Array.from(compMap.values()).sort((a, b) =>
+        a.competitor_name.localeCompare(b.competitor_name)
+      ),
+    }));
 }
 
 // ---------------------------------------------------------------------------
-// Single item row inside an expanded report
+// Markdown generation — a Claude prompt
 // ---------------------------------------------------------------------------
 
-function ItemRow({ item }: { item: ReportItem }) {
-  const meta = CATEGORY_META[item.category] ?? CATEGORY_META.pr;
+function generateMarkdown(group: ReportGroup): string {
+  const dateLabel = formatDateOnly(group.date);
 
-  const isLinkedIn = item.content.startsWith("[LinkedIn]");
-  const isTwitter =
-    item.content.startsWith("[X/Twitter]") ||
-    item.content.startsWith("[Twitter]");
-  const text = item.content
-    .replace(/^\[LinkedIn\]\s*/, "")
-    .replace(/^\[X\/Twitter\]\s*/, "")
-    .replace(/^\[Twitter\]\s*/, "");
+  const lines: string[] = [
+    `You are a competitive intelligence analyst for E2E Networks, an Indian GPU cloud provider.`,
+    `Below is competitive intelligence data automatically tracked on ${dateLabel}.`,
+    `Please help me:`,
+    `1. Identify the most important developments across all competitors`,
+    `2. Highlight anything E2E Networks should be aware of or respond to`,
+    `3. Summarise the key themes and what stands out this period`,
+    ``,
+    `---`,
+    ``,
+    `# Competitive Intelligence — ${dateLabel}`,
+    ``,
+  ];
+
+  for (const company of group.companies) {
+    const catLabel = company.competitor_category === "e2e_cloud" ? "E2E Cloud"
+      : company.competitor_category === "tir" ? "TIR" : company.competitor_category;
+
+    lines.push(`## ${company.competitor_name}${catLabel ? ` (${catLabel})` : ""}`);
+    lines.push(``);
+
+    const sections: [string, ReportItem[]][] = [
+      ["Press Release & News", company.pr],
+      ["Newsletter", company.newsletter],
+      ["Web Activity", company.web],
+      ["Social Media", company.social],
+    ];
+
+    for (const [label, items] of sections) {
+      if (items.length === 0) continue;
+      lines.push(`### ${label}`);
+      for (const item of items) {
+        const text = item.content
+          .replace(/^\[LinkedIn\]\s*/, "[LinkedIn] ")
+          .replace(/^\[X\/Twitter\]\s*/, "[X/Twitter] ")
+          .replace(/^\[Twitter\]\s*/, "[X/Twitter] ");
+        lines.push(`- ${text}`);
+      }
+      lines.push(``);
+    }
+
+    lines.push(`---`);
+    lines.push(``);
+  }
+
+  return lines.join("\n");
+}
+
+function downloadMd(group: ReportGroup) {
+  const md = generateMarkdown(group);
+  const blob = new Blob([md], { type: "text/markdown" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `comptrack-report-${group.date}.md`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ---------------------------------------------------------------------------
+// Company block inside expanded report
+// ---------------------------------------------------------------------------
+
+function CompanyBlock({ company }: { company: CompanyGroup }) {
+  const catLabel = company.competitor_category === "e2e_cloud" ? "E2E Cloud"
+    : company.competitor_category === "tir" ? "TIR"
+    : company.competitor_category === "both" ? "Both"
+    : "";
+
+  const sections: [keyof typeof SECTION_LABELS, ReportItem[]][] = [
+    ["pr", company.pr],
+    ["newsletter", company.newsletter],
+    ["web", company.web],
+    ["social", company.social],
+  ];
+
+  const hasAnyData = sections.some(([, items]) => items.length > 0);
 
   return (
-    <div className="flex items-start gap-3 py-3 border-b border-slate-50 last:border-0">
-      {/* Left: category + platform badge */}
-      <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
-        <span className={`text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${meta.badge}`}>
-          {meta.label}
-        </span>
-        {item.category === "social" && isLinkedIn && (
-          <span className="text-xs font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">
-            in
-          </span>
-        )}
-        {item.category === "social" && isTwitter && (
-          <span className="text-xs font-bold bg-slate-800 text-white px-1.5 py-0.5 rounded">
-            𝕏
+    <div className="border border-slate-100 rounded-lg p-4">
+      {/* Company header */}
+      <div className="flex items-center gap-2 mb-3">
+        <span className="font-semibold text-slate-900">{company.competitor_name}</span>
+        {catLabel && (
+          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+            company.competitor_category === "tir"
+              ? "bg-violet-50 text-violet-700 border border-violet-100"
+              : "bg-sky-50 text-sky-700 border border-sky-100"
+          }`}>
+            {catLabel}
           </span>
         )}
       </div>
 
-      {/* Middle: competitor + content */}
-      <div className="flex-1 min-w-0">
-        <span className="text-xs font-semibold text-slate-500 mr-2">
-          {item.competitor_name}
-        </span>
-        <span className="text-sm text-slate-800 leading-relaxed">
-          {item.category === "social" ? text : item.content}
-        </span>
-      </div>
-
-      {/* Right: source link */}
-      {item.source_url && (
-        <a
-          href={item.source_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="shrink-0 inline-flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700 transition-colors pt-0.5"
-        >
-          <ExternalLink size={10} />
-          {sourceDomain(item.source_url)}
-        </a>
+      {!hasAnyData ? (
+        <p className="text-sm text-slate-400 italic">No data collected this period.</p>
+      ) : (
+        <div className="space-y-3">
+          {sections.map(([key, items]) => {
+            if (items.length === 0) return null;
+            return (
+              <div key={key}>
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+                  {SECTION_LABELS[key]}
+                </p>
+                <ul className="space-y-1">
+                  {items.map((item, idx) => {
+                    const isLinkedIn = item.content.startsWith("[LinkedIn]");
+                    const isTwitter = item.content.startsWith("[X/Twitter]") || item.content.startsWith("[Twitter]");
+                    const text = item.content
+                      .replace(/^\[LinkedIn\]\s*/, "")
+                      .replace(/^\[X\/Twitter\]\s*/, "")
+                      .replace(/^\[Twitter\]\s*/, "");
+                    return (
+                      <li key={idx} className="flex items-start gap-2 text-sm text-slate-700">
+                        {key === "social" && isLinkedIn ? (
+                          <span className="shrink-0 mt-0.5 text-xs font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded leading-none">in</span>
+                        ) : key === "social" && isTwitter ? (
+                          <span className="shrink-0 mt-0.5 text-xs font-bold bg-slate-800 text-white px-1.5 py-0.5 rounded leading-none">𝕏</span>
+                        ) : (
+                          <span className="shrink-0 mt-1.5 w-1 h-1 rounded-full bg-slate-400" />
+                        )}
+                        <span className="leading-relaxed">{key === "social" ? text : item.content}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// One report row per date — click to expand
+// Report row — one per date
 // ---------------------------------------------------------------------------
 
-interface ReportGroup {
-  date: string;           // YYYY-MM-DD
-  runTime: string;        // created_at of the first item (actual job run timestamp)
-  items: ReportItem[];
-}
-
-function ReportRow({
-  group,
-  defaultOpen,
-}: {
-  group: ReportGroup;
-  defaultOpen: boolean;
-}) {
+function ReportRow({ group, defaultOpen }: { group: ReportGroup; defaultOpen: boolean }) {
   const [open, setOpen] = useState(defaultOpen);
 
   return (
     <div className="bg-white border border-slate-200 rounded-xl overflow-hidden hover:shadow-sm transition-shadow">
       {/* Header */}
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-slate-50 transition-colors"
-      >
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between px-5 py-4">
+        <button
+          onClick={() => setOpen((v) => !v)}
+          className="flex items-center gap-3 flex-1 text-left"
+        >
           {open
             ? <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
             : <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />}
@@ -163,17 +273,27 @@ function ReportRow({
               </span>
             )}
           </div>
-        </div>
-        <span className="text-xs text-slate-400 shrink-0 ml-4">
-          {group.items.length} item{group.items.length !== 1 ? "s" : ""}
-        </span>
-      </button>
+          <span className="ml-3 text-xs text-slate-400">
+            {group.companies.length} {group.companies.length === 1 ? "company" : "companies"}
+          </span>
+        </button>
 
-      {/* Expanded content */}
+        {/* Download .md */}
+        <button
+          onClick={() => downloadMd(group)}
+          className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 bg-slate-50 hover:bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-lg transition-colors ml-3 shrink-0"
+          title="Download as Claude prompt (.md)"
+        >
+          <Download size={12} />
+          .md
+        </button>
+      </div>
+
+      {/* Expanded: one block per company */}
       {open && (
-        <div className="px-5 pb-4 border-t border-slate-100">
-          {group.items.map((item, idx) => (
-            <ItemRow key={idx} item={item} />
+        <div className="px-5 pb-5 border-t border-slate-100 pt-4 space-y-3">
+          {group.companies.map((company) => (
+            <CompanyBlock key={company.competitor_id} company={company} />
           ))}
         </div>
       )}
@@ -190,7 +310,8 @@ export default function ReportsPage() {
   const router = useRouter();
 
   const [cloudFilter, setCloudFilter] = useState<CloudFilter>("all");
-  const [days, setDays] = useState<DaysOption>(30);
+  const [days, setDays] = useState<DaysOption>(7);
+  const [pickedDate, setPickedDate] = useState<string>("");   // YYYY-MM-DD or ""
   const [items, setItems] = useState<ReportItem[]>([]);
   const [fetching, setFetching] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -199,35 +320,24 @@ export default function ReportsPage() {
     if (!loading && !user) router.replace("/login");
   }, [user, loading, router]);
 
+  // When a specific date is picked we fetch 1 day; otherwise use days range
   useEffect(() => {
     if (!user) return;
     setFetching(true);
     setError(null);
-    getReports({ days })
+    getReports({ days: pickedDate ? 90 : days })
       .then(setItems)
       .catch((err: unknown) =>
         setError(err instanceof Error ? err.message : "Failed to load reports")
       )
       .finally(() => setFetching(false));
-  }, [user, days]);
+  }, [user, days, pickedDate]);
 
-  // Group items by date, applying cloud filter, newest date first
-  const groups = useMemo<ReportGroup[]>(() => {
-    const filtered = items.filter((i) => matchesCloud(i, cloudFilter));
-    const map = new Map<string, ReportItem[]>();
-    for (const item of filtered) {
-      if (!map.has(item.date)) map.set(item.date, []);
-      map.get(item.date)!.push(item);
-    }
-    return Array.from(map.entries())
-      .sort(([a], [b]) => b.localeCompare(a))
-      .map(([date, its]) => ({
-        date,
-        // Use the created_at of the most recent item for the run time
-        runTime: its.find((i) => i.created_at)?.created_at ?? "",
-        items: its,
-      }));
-  }, [items, cloudFilter]);
+  const groups = useMemo(() => {
+    let filtered = items;
+    if (pickedDate) filtered = items.filter((i) => i.date === pickedDate);
+    return buildGroups(filtered, cloudFilter);
+  }, [items, cloudFilter, pickedDate]);
 
   if (loading) {
     return (
@@ -249,12 +359,12 @@ export default function ReportsPage() {
           <div className="mb-6">
             <h1 className="text-2xl font-bold text-slate-900">Reports</h1>
             <p className="text-sm text-slate-500 mt-1">
-              One report per day — click to expand.
+              One report per day — click to read, download .md to analyse in Claude.
             </p>
           </div>
 
           {/* Controls */}
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+          <div className="flex flex-wrap items-center gap-3 mb-6">
             {/* Cloud toggle */}
             <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
               {(["all", "e2e_cloud", "tir"] as CloudFilter[]).map((f) => (
@@ -272,21 +382,42 @@ export default function ReportsPage() {
               ))}
             </div>
 
-            {/* Days filter */}
-            <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
-              {DAYS_OPTIONS.map((d) => (
+            {/* Days filter — hidden when a specific date is picked */}
+            {!pickedDate && (
+              <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
+                {([7, 30] as DaysOption[]).map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => setDays(d)}
+                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                      days === d
+                        ? "bg-white text-slate-900 shadow-sm"
+                        : "text-slate-500 hover:text-slate-700"
+                    }`}
+                  >
+                    {d}d
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Date picker */}
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={pickedDate}
+                onChange={(e) => setPickedDate(e.target.value)}
+                className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              {pickedDate && (
                 <button
-                  key={d}
-                  onClick={() => setDays(d)}
-                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                    days === d
-                      ? "bg-white text-slate-900 shadow-sm"
-                      : "text-slate-500 hover:text-slate-700"
-                  }`}
+                  onClick={() => setPickedDate("")}
+                  className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-md transition-colors"
+                  title="Clear date filter"
                 >
-                  {d}d
+                  <X size={14} />
                 </button>
-              ))}
+              )}
             </div>
           </div>
 
@@ -301,18 +432,12 @@ export default function ReportsPage() {
             </div>
           ) : groups.length === 0 ? (
             <div className="py-24 text-center border border-dashed border-slate-200 rounded-xl">
-              <p className="text-sm text-slate-400">
-                No reports found for the selected filters.
-              </p>
+              <p className="text-sm text-slate-400">No reports found.</p>
             </div>
           ) : (
             <div className="space-y-3">
               {groups.map((grp, idx) => (
-                <ReportRow
-                  key={grp.date}
-                  group={grp}
-                  defaultOpen={idx === 0}   // latest report auto-expanded
-                />
+                <ReportRow key={grp.date} group={grp} defaultOpen={idx === 0} />
               ))}
             </div>
           )}
