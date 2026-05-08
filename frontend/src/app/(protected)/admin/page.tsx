@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Check, X, Play, Pencil } from "lucide-react";
+import { Plus, Check, X, Play, Pencil, Activity, Cpu } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import {
   listCompetitors,
@@ -12,13 +12,15 @@ import {
   listSuggestions,
   reviewSuggestion,
   getStats,
+  getLlmUsage,
   triggerJob,
   type Competitor,
   type Suggestion,
   type Stats,
+  type LlmUsageStats,
 } from "@/lib/api";
 import { Navbar } from "@/components/Navbar";
-import { categoryLabel, formatDate } from "@/lib/utils";
+import { categoryLabel, formatDate, formatTimeIST } from "@/lib/utils";
 
 export default function AdminPage() {
   const { user, loading } = useAuth();
@@ -26,6 +28,7 @@ export default function AdminPage() {
   const [competitors, setCompetitors] = useState<Competitor[]>([]);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [llmUsage, setLlmUsage] = useState<LlmUsageStats | null>(null);
 
   const [showAdd, setShowAdd] = useState(false);
   const [addForm, setAddForm] = useState({
@@ -55,6 +58,7 @@ export default function AdminPage() {
       listCompetitors(true).then(setCompetitors),
       listSuggestions("pending").then(setSuggestions),
       getStats().then(setStats),
+      getLlmUsage().then(setLlmUsage).catch(() => null),
     ]).finally(() => setFetching(false));
   }, [user]);
 
@@ -191,9 +195,18 @@ export default function AdminPage() {
             </div>
           )}
 
-          {/* Trigger all jobs */}
+          {/* Trigger all jobs + Job History link */}
           <section className="bg-white border border-slate-200 rounded-xl p-5">
-            <h2 className="text-sm font-semibold text-slate-800 mb-3">Trigger Jobs (all active competitors)</h2>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold text-slate-800">Trigger Jobs (all active competitors)</h2>
+              <a
+                href="/admin/jobs"
+                className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 bg-slate-50 hover:bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-lg transition-colors"
+              >
+                <Activity size={12} />
+                View job history
+              </a>
+            </div>
             <div className="flex gap-2">
               <button
                 onClick={() => handleTriggerAll("daily")}
@@ -213,6 +226,97 @@ export default function AdminPage() {
               </button>
             </div>
           </section>
+
+          {/* LLM Token Usage */}
+          {llmUsage && (
+            <section className="bg-white border border-slate-200 rounded-xl p-5 space-y-4">
+              <div className="flex items-center gap-2">
+                <Cpu size={15} className="text-slate-400" />
+                <h2 className="text-sm font-semibold text-slate-800">LLM Token Usage</h2>
+              </div>
+
+              {/* Quick stats */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {[
+                  { label: "Today", value: llmUsage.today_tokens.toLocaleString() },
+                  { label: "Last 7 days", value: llmUsage.week_tokens.toLocaleString() },
+                  { label: "Last 30 days", value: llmUsage.month_tokens.toLocaleString() },
+                  { label: "All time", value: llmUsage.total_tokens.toLocaleString() },
+                ].map(({ label, value }) => (
+                  <div key={label} className="bg-slate-50 rounded-lg p-3 text-center border border-slate-100">
+                    <p className="text-lg font-bold text-slate-900">{value}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">{label}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Prompt vs completion split */}
+              <div className="flex items-center gap-6 text-xs text-slate-500">
+                <span>Total calls: <strong className="text-slate-800">{llmUsage.total_calls.toLocaleString()}</strong></span>
+                <span>Prompt: <strong className="text-slate-800">{llmUsage.prompt_tokens.toLocaleString()}</strong></span>
+                <span>Completion: <strong className="text-slate-800">{llmUsage.completion_tokens.toLocaleString()}</strong></span>
+              </div>
+
+              {/* Per-model breakdown */}
+              {llmUsage.by_model.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">By model</p>
+                  <div className="space-y-1.5">
+                    {llmUsage.by_model.map((m) => (
+                      <div key={m.model} className="flex items-center justify-between text-sm bg-slate-50 rounded-lg px-3 py-2 border border-slate-100">
+                        <span className="font-medium text-slate-700 truncate max-w-xs">{m.model}</span>
+                        <div className="flex items-center gap-4 text-xs text-slate-500 shrink-0 ml-4">
+                          <span>{m.calls} calls</span>
+                          <span className="font-semibold text-slate-800">{m.total.toLocaleString()} tokens</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Recent calls */}
+              {llmUsage.recent.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Recent calls (last 20)</p>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="text-left text-slate-400 border-b border-slate-100">
+                          <th className="pb-1.5 font-medium">Model</th>
+                          <th className="pb-1.5 font-medium">Type</th>
+                          <th className="pb-1.5 font-medium text-right">Prompt</th>
+                          <th className="pb-1.5 font-medium text-right">Completion</th>
+                          <th className="pb-1.5 font-medium text-right">Total</th>
+                          <th className="pb-1.5 font-medium text-right">Time (IST)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50">
+                        {llmUsage.recent.map((r, idx) => (
+                          <tr key={idx} className="text-slate-600">
+                            <td className="py-1.5 truncate max-w-32">{r.model.split("/").pop()}</td>
+                            <td className="py-1.5">
+                              <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${r.call_type === "json" ? "bg-blue-50 text-blue-700" : "bg-slate-100 text-slate-600"}`}>
+                                {r.call_type}
+                              </span>
+                            </td>
+                            <td className="py-1.5 text-right">{r.prompt_tokens.toLocaleString()}</td>
+                            <td className="py-1.5 text-right">{r.completion_tokens.toLocaleString()}</td>
+                            <td className="py-1.5 text-right font-medium text-slate-800">{r.total_tokens.toLocaleString()}</td>
+                            <td className="py-1.5 text-right text-slate-400">{formatTimeIST(r.called_at)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {llmUsage.total_calls === 0 && (
+                <p className="text-sm text-slate-400 italic">No LLM calls recorded yet. Token tracking starts from the next job run.</p>
+              )}
+            </section>
+          )}
 
           {/* Pending suggestions */}
           {suggestions.length > 0 && (

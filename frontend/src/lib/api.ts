@@ -186,6 +186,10 @@ export async function getHealth(): Promise<HealthStatus> {
   return apiFetch<HealthStatus>(`${API_BASE}/health`);
 }
 
+export async function getLlmUsage(): Promise<LlmUsageStats> {
+  return apiFetch<LlmUsageStats>(`${API_BASE}/admin/llm-usage`);
+}
+
 // ---------------------------------------------------------------------------
 // Reports
 // ---------------------------------------------------------------------------
@@ -405,6 +409,31 @@ export interface ReportItem {
   source_url?: string;
   competitor_linkedin_url?: string;
   competitor_twitter_handle?: string;
+}
+
+export interface LlmUsageStats {
+  total_calls: number;
+  total_tokens: number;
+  prompt_tokens: number;
+  completion_tokens: number;
+  today_tokens: number;
+  week_tokens: number;
+  month_tokens: number;
+  by_model: Array<{
+    model: string;
+    calls: number;
+    prompt: number;
+    completion: number;
+    total: number;
+  }>;
+  recent: Array<{
+    model: string;
+    call_type: string;
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+    called_at: string;
+  }>;
 }
 
 export interface KBEntry {

@@ -81,3 +81,9 @@ async def review_suggestion(
             })
 
     return result
+
+
+@router.get("/llm-usage")
+async def llm_usage(user: dict = Depends(get_current_user)):
+    _require_admin(user)
+    return await db.get_llm_usage_stats()

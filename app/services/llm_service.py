@@ -8,6 +8,7 @@ Swap either model/endpoint by changing .env only — no code changes required.
 Fallback is activated automatically when the primary fails all retries.
 """
 
+import asyncio
 import json
 import logging
 import re
@@ -31,6 +32,22 @@ from config import (
 log = logging.getLogger(__name__)
 
 _client: Optional[httpx.AsyncClient] = None
+
+
+async def _log_usage(model: str, endpoint: str, usage: dict, call_type: str) -> None:
+    """Fire-and-forget: persist token usage to the DB without blocking callers."""
+    try:
+        from db import database as _db  # lazy import to avoid circular deps at module load
+        await _db.log_llm_usage(
+            model=model,
+            endpoint=endpoint,
+            prompt_tokens=usage.get("prompt_tokens", 0),
+            completion_tokens=usage.get("completion_tokens", 0),
+            total_tokens=usage.get("total_tokens", 0),
+            call_type=call_type,
+        )
+    except Exception as exc:
+        log.debug("LLM usage logging failed (non-fatal): %s", exc)
 
 
 def _get_client() -> httpx.AsyncClient:
@@ -74,7 +91,9 @@ async def _do_chat(
     }
     resp = await _get_client().post(url, json=payload, headers=_headers(api_key))
     resp.raise_for_status()
-    content = resp.json()["choices"][0]["message"]["content"]
+    data = resp.json()
+    content = data["choices"][0]["message"]["content"]
+    asyncio.create_task(_log_usage(model, base_url, data.get("usage", {}), "chat"))
     return _strip_thinking(content)
 
 
@@ -98,14 +117,18 @@ async def _do_json(
     try:
         resp = await _get_client().post(url, json=payload, headers=_headers(api_key))
         resp.raise_for_status()
-        content = _strip_thinking(resp.json()["choices"][0]["message"]["content"])
+        data = resp.json()
+        content = _strip_thinking(data["choices"][0]["message"]["content"])
+        asyncio.create_task(_log_usage(model, base_url, data.get("usage", {}), "json"))
         return json.loads(content)
     except Exception:
         # Some endpoints don't support response_format — retry without it
         del payload["response_format"]
         resp = await _get_client().post(url, json=payload, headers=_headers(api_key))
         resp.raise_for_status()
-        content = _strip_thinking(resp.json()["choices"][0]["message"]["content"])
+        data = resp.json()
+        content = _strip_thinking(data["choices"][0]["message"]["content"])
+        asyncio.create_task(_log_usage(model, base_url, data.get("usage", {}), "json"))
         match = re.search(r"\{.*\}", content, re.DOTALL)
         if match:
             return json.loads(match.group())

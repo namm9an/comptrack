@@ -2,15 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Settings, Activity, LogOut, BarChart2, BookOpen } from "lucide-react";
+import { LayoutDashboard, Settings, LogOut, BarChart2, BookOpen } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/reports", label: "Reports", icon: BarChart2 },
-  { href: "/admin/jobs", label: "Job History", icon: Activity, adminOnly: true },
-  { href: "/admin/knowledge-base", label: "Knowledge Base", icon: BookOpen, adminOnly: true },
+  { href: "/admin/knowledge-base", label: "Knowledge Base", icon: BookOpen },
   { href: "/admin", label: "Admin", icon: Settings, adminOnly: true },
 ];
 

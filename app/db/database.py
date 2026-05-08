@@ -139,6 +139,18 @@ CREATE TABLE IF NOT EXISTS knowledge_base (
     UNIQUE(competitor_id, month)
 );
 CREATE INDEX IF NOT EXISTS idx_kb_comp_month ON knowledge_base(competitor_id, month);
+
+CREATE TABLE IF NOT EXISTS llm_usage (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    model               TEXT    NOT NULL,
+    endpoint            TEXT    NOT NULL,
+    prompt_tokens       INTEGER NOT NULL DEFAULT 0,
+    completion_tokens   INTEGER NOT NULL DEFAULT 0,
+    total_tokens        INTEGER NOT NULL DEFAULT 0,
+    call_type           TEXT    NOT NULL DEFAULT 'json',
+    called_at           TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_llm_usage_called_at ON llm_usage(called_at);
 """
 
 SEED_COMPETITORS = [
@@ -909,3 +921,84 @@ async def get_digests_for_month(competitor_id: int, month: str) -> list[dict]:
         d["digest"] = json.loads(d["digest_json"])
         result.append(d)
     return result
+
+
+# ---------------------------------------------------------------------------
+# LLM usage tracking
+# ---------------------------------------------------------------------------
+
+async def log_llm_usage(
+    model: str,
+    endpoint: str,
+    prompt_tokens: int,
+    completion_tokens: int,
+    total_tokens: int,
+    call_type: str = "json",
+) -> None:
+    """Record a single LLM API call's token usage."""
+    try:
+        conn = await get_db()
+        await conn.execute(
+            """INSERT INTO llm_usage
+               (model, endpoint, prompt_tokens, completion_tokens, total_tokens, call_type)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (model, endpoint, prompt_tokens, completion_tokens, total_tokens, call_type),
+        )
+        await conn.commit()
+    except Exception as exc:
+        log.debug("Failed to persist LLM usage: %s", exc)
+
+
+async def get_llm_usage_stats() -> dict:
+    """Return aggregated token usage statistics for the admin panel."""
+    conn = await get_db()
+
+    async def _scalar(sql: str, params: tuple = ()) -> int:
+        c = await conn.execute(sql, params)
+        row = await c.fetchone()
+        return (row[0] or 0) if row else 0
+
+    total_calls = await _scalar("SELECT COUNT(*) FROM llm_usage")
+    total_tokens = await _scalar("SELECT SUM(total_tokens) FROM llm_usage")
+    prompt_tokens = await _scalar("SELECT SUM(prompt_tokens) FROM llm_usage")
+    completion_tokens = await _scalar("SELECT SUM(completion_tokens) FROM llm_usage")
+
+    today_tokens = await _scalar(
+        "SELECT SUM(total_tokens) FROM llm_usage WHERE date(called_at) = date('now')"
+    )
+    week_tokens = await _scalar(
+        "SELECT SUM(total_tokens) FROM llm_usage WHERE called_at >= datetime('now', '-7 days')"
+    )
+    month_tokens = await _scalar(
+        "SELECT SUM(total_tokens) FROM llm_usage WHERE called_at >= datetime('now', '-30 days')"
+    )
+
+    # Per-model breakdown
+    c = await conn.execute(
+        """SELECT model, COUNT(*) AS calls,
+                  SUM(prompt_tokens) AS prompt, SUM(completion_tokens) AS completion,
+                  SUM(total_tokens) AS total
+           FROM llm_usage
+           GROUP BY model
+           ORDER BY total DESC"""
+    )
+    by_model = [dict(r) for r in await c.fetchall()]
+
+    # Last 20 calls
+    c = await conn.execute(
+        """SELECT model, call_type, prompt_tokens, completion_tokens, total_tokens, called_at
+           FROM llm_usage ORDER BY called_at DESC LIMIT 20"""
+    )
+    recent = [dict(r) for r in await c.fetchall()]
+
+    return {
+        "total_calls": total_calls,
+        "total_tokens": total_tokens,
+        "prompt_tokens": prompt_tokens,
+        "completion_tokens": completion_tokens,
+        "today_tokens": today_tokens,
+        "week_tokens": week_tokens,
+        "month_tokens": month_tokens,
+        "by_model": by_model,
+        "recent": recent,
+    }

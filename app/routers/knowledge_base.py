@@ -19,9 +19,8 @@ def _require_admin(user: dict) -> dict:
 @router.get("")
 async def list_kb(
     competitor_id: Optional[int] = None,
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(get_current_user),  # any authenticated user
 ):
-    _require_admin(user)
     return await db.list_knowledge_base(competitor_id=competitor_id)
 
 
@@ -29,9 +28,8 @@ async def list_kb(
 async def get_kb_entry(
     competitor_id: int,
     month: str,
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(get_current_user),  # any authenticated user
 ):
-    _require_admin(user)
     entry = await db.get_kb_entry(competitor_id, month)
     if not entry:
         raise HTTPException(status_code=404, detail="Knowledge base entry not found")
