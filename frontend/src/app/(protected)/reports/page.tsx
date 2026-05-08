@@ -222,12 +222,43 @@ function CompanyBlock({ company }: { company: CompanyGroup }) {
                       .replace(/^\[LinkedIn\]\s*/, "")
                       .replace(/^\[X\/Twitter\]\s*/, "")
                       .replace(/^\[Twitter\]\s*/, "");
+
+                    // Build platform link: LinkedIn page or Twitter profile
+                    const linkedinHref = item.competitor_linkedin_url ?? null;
+                    const twitterHref = item.competitor_twitter_handle
+                      ? `https://x.com/${item.competitor_twitter_handle.replace(/^@/, "")}`
+                      : null;
+
                     return (
                       <li key={idx} className="flex items-start gap-2 text-sm text-slate-700">
                         {key === "social" && isLinkedIn ? (
-                          <span className="shrink-0 mt-0.5 text-xs font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded leading-none">in</span>
+                          linkedinHref ? (
+                            <a
+                              href={linkedinHref}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="View LinkedIn profile"
+                              className="shrink-0 mt-0.5 text-xs font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded leading-none hover:bg-blue-200 transition-colors"
+                            >
+                              in
+                            </a>
+                          ) : (
+                            <span className="shrink-0 mt-0.5 text-xs font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded leading-none">in</span>
+                          )
                         ) : key === "social" && isTwitter ? (
-                          <span className="shrink-0 mt-0.5 text-xs font-bold bg-slate-800 text-white px-1.5 py-0.5 rounded leading-none">𝕏</span>
+                          twitterHref ? (
+                            <a
+                              href={twitterHref}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="View X / Twitter profile"
+                              className="shrink-0 mt-0.5 text-xs font-bold bg-slate-800 text-white px-1.5 py-0.5 rounded leading-none hover:bg-slate-700 transition-colors"
+                            >
+                              𝕏
+                            </a>
+                          ) : (
+                            <span className="shrink-0 mt-0.5 text-xs font-bold bg-slate-800 text-white px-1.5 py-0.5 rounded leading-none">𝕏</span>
+                          )
                         ) : (
                           <span className="shrink-0 mt-1.5 w-1 h-1 rounded-full bg-slate-400" />
                         )}

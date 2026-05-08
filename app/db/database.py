@@ -700,7 +700,10 @@ async def get_report_items(
     if competitor_id is not None:
         cursor = await conn.execute(
             """SELECT d.digest_date, d.created_at, d.digest_json, d.period,
-                      c.id AS competitor_id, c.name AS competitor_name, c.category AS competitor_category
+                      c.id AS competitor_id, c.name AS competitor_name,
+                      c.category AS competitor_category,
+                      c.linkedin_url AS competitor_linkedin_url,
+                      c.twitter_handle AS competitor_twitter_handle
                FROM digests d
                JOIN competitors c ON d.competitor_id = c.id
                WHERE d.competitor_id = ?
@@ -711,7 +714,10 @@ async def get_report_items(
     else:
         cursor = await conn.execute(
             """SELECT d.digest_date, d.created_at, d.digest_json, d.period,
-                      c.id AS competitor_id, c.name AS competitor_name, c.category AS competitor_category
+                      c.id AS competitor_id, c.name AS competitor_name,
+                      c.category AS competitor_category,
+                      c.linkedin_url AS competitor_linkedin_url,
+                      c.twitter_handle AS competitor_twitter_handle
                FROM digests d
                JOIN competitors c ON d.competitor_id = c.id
                WHERE d.digest_date >= date('now', ? || ' days')
@@ -731,6 +737,8 @@ async def get_report_items(
 
         comp_category = r.get("competitor_category", "")
         created_at = r.get("created_at", "")
+        comp_linkedin_url = r.get("competitor_linkedin_url") or None
+        comp_twitter_handle = r.get("competitor_twitter_handle") or None
         # Attach the first source URL from the digest so items are traceable
         digest_sources = content.get("sources") or []
         primary_source = digest_sources[0] if digest_sources else None
@@ -746,6 +754,8 @@ async def get_report_items(
                 "content": text,
                 "period": period,
                 "source_url": primary_source,
+                "competitor_linkedin_url": comp_linkedin_url,
+                "competitor_twitter_handle": comp_twitter_handle,
             }
 
         if category in ("all", "pr"):

@@ -403,6 +403,8 @@ export interface ReportItem {
   content: string;
   period: string;
   source_url?: string;
+  competitor_linkedin_url?: string;
+  competitor_twitter_handle?: string;
 }
 
 export interface KBEntry {
