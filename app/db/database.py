@@ -699,7 +699,7 @@ async def get_report_items(
     conn = await get_db()
     if competitor_id is not None:
         cursor = await conn.execute(
-            """SELECT d.digest_date, d.digest_json, d.period,
+            """SELECT d.digest_date, d.created_at, d.digest_json, d.period,
                       c.id AS competitor_id, c.name AS competitor_name, c.category AS competitor_category
                FROM digests d
                JOIN competitors c ON d.competitor_id = c.id
@@ -710,7 +710,7 @@ async def get_report_items(
         )
     else:
         cursor = await conn.execute(
-            """SELECT d.digest_date, d.digest_json, d.period,
+            """SELECT d.digest_date, d.created_at, d.digest_json, d.period,
                       c.id AS competitor_id, c.name AS competitor_name, c.category AS competitor_category
                FROM digests d
                JOIN competitors c ON d.competitor_id = c.id
@@ -730,6 +730,7 @@ async def get_report_items(
         period = r["period"]
 
         comp_category = r.get("competitor_category", "")
+        created_at = r.get("created_at", "")
         # Attach the first source URL from the digest so items are traceable
         digest_sources = content.get("sources") or []
         primary_source = digest_sources[0] if digest_sources else None
@@ -741,6 +742,7 @@ async def get_report_items(
                 "competitor_name": comp_name,
                 "competitor_category": comp_category,
                 "date": date_str,
+                "created_at": created_at,
                 "content": text,
                 "period": period,
                 "source_url": primary_source,

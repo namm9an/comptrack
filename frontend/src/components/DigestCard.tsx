@@ -16,7 +16,7 @@ import {
   Lightbulb,
 } from "lucide-react";
 import type { Digest } from "@/lib/api";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatDateOnly, formatTimeIST } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
 // Markdown export — handles both new and legacy formats
@@ -592,9 +592,9 @@ export function DigestCard({ digest }: Props) {
           >
             {digest.period}
           </span>
-          <span className="text-sm text-slate-500">{digest.digest_date}</span>
+          <span className="text-sm text-slate-500">{formatDateOnly(digest.digest_date)}</span>
         </div>
-        <span className="text-xs text-slate-400">{formatDate(digest.created_at)}</span>
+        <span className="text-xs text-slate-400">{formatTimeIST(digest.created_at)}</span>
       </div>
 
       {/* Body — new vs legacy */}

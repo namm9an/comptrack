@@ -17,6 +17,28 @@ export function formatDate(isoString: string): string {
   });
 }
 
+/** Format a YYYY-MM-DD date string as "8 May 2026" — no time, no UTC shift. */
+export function formatDateOnly(dateStr: string): string {
+  if (!dateStr) return "—";
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+/** Format an ISO timestamp as "10:32 AM IST". */
+export function formatTimeIST(isoString: string): string {
+  if (!isoString) return "";
+  return new Date(isoString).toLocaleTimeString("en-IN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Asia/Kolkata",
+    hour12: true,
+  }) + " IST";
+}
+
 export function categoryLabel(cat: string): string {
   if (cat === "e2e_cloud") return "E2E Cloud";
   if (cat === "tir") return "TIR";

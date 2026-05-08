@@ -398,7 +398,8 @@ export interface ReportItem {
   competitor_id: number;
   competitor_name: string;
   competitor_category?: string;
-  date: string;
+  date: string;         // YYYY-MM-DD
+  created_at?: string;  // ISO timestamp of when the digest was created
   content: string;
   period: string;
   source_url?: string;
