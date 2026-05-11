@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronRight, Download, X } from "lucide-react";
+import { ChevronDown, ChevronRight, Download, FileText, X } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { getReports, type ReportItem } from "@/lib/api";
 import { Navbar } from "@/components/Navbar";
@@ -168,6 +168,118 @@ function downloadMd(group: ReportGroup) {
   URL.revokeObjectURL(url);
 }
 
+function printPdf(group: ReportGroup) {
+  const dateLabel = formatDateOnly(group.date);
+
+  const companySections = group.companies.map((company) => {
+    const catLabel = company.competitor_category === "e2e_cloud" ? "E2E Cloud"
+      : company.competitor_category === "tir" ? "TIR"
+      : company.competitor_category === "both" ? "Both"
+      : "";
+
+    const sections: [string, ReportItem[]][] = [
+      ["Press Release & News", company.pr],
+      ["Newsletter", company.newsletter],
+      ["Web Activity", company.web],
+      ["Social Media", company.social],
+    ];
+
+    const sectionsHtml = sections
+      .filter(([, items]) => items.length > 0)
+      .map(([label, items]) => {
+        const listItems = items.map((item) => {
+          const isSocial = label === "Social Media";
+          const isLinkedIn = item.content.startsWith("[LinkedIn]");
+          const isTwitter = item.content.startsWith("[X/Twitter]") || item.content.startsWith("[Twitter]");
+          const text = item.content
+            .replace(/^\[LinkedIn\]\s*/, "")
+            .replace(/^\[X\/Twitter\]\s*/, "")
+            .replace(/^\[Twitter\]\s*/, "");
+
+          let badge = "";
+          if (isSocial && isLinkedIn) badge = `<span class="badge badge-linkedin">in</span> `;
+          else if (isSocial && isTwitter) badge = `<span class="badge badge-twitter">𝕏</span> `;
+
+          return `<li>${badge}${isSocial ? text : item.content}</li>`;
+        }).join("");
+        return `<div class="section"><p class="section-label">${label}</p><ul>${listItems}</ul></div>`;
+      }).join("");
+
+    const hasData = sections.some(([, items]) => items.length > 0);
+
+    return `
+      <div class="company">
+        <div class="company-header">
+          <span class="company-name">${company.competitor_name}</span>
+          ${catLabel ? `<span class="cat-badge cat-${company.competitor_category}">${catLabel}</span>` : ""}
+        </div>
+        ${hasData ? sectionsHtml : `<p class="no-data">No data collected this period.</p>`}
+      </div>`;
+  }).join("");
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>CompTrack Report — ${dateLabel}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 11pt; color: #1e293b; line-height: 1.55; padding: 32px 40px; }
+    @media print { body { padding: 20px 28px; } }
+
+    .header { border-bottom: 2px solid #e2e8f0; padding-bottom: 14px; margin-bottom: 24px; }
+    .header h1 { font-size: 18pt; font-weight: 700; color: #0f172a; }
+    .header .meta { font-size: 9pt; color: #64748b; margin-top: 4px; }
+    .brand { display: inline-block; background: #2563eb; color: #fff; font-size: 8pt; font-weight: 700; padding: 2px 7px; border-radius: 4px; margin-right: 8px; vertical-align: middle; }
+
+    .company { margin-bottom: 22px; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 16px; page-break-inside: avoid; }
+    .company-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .company-name { font-size: 12pt; font-weight: 700; color: #0f172a; }
+    .cat-badge { font-size: 8pt; font-weight: 600; padding: 2px 8px; border-radius: 20px; }
+    .cat-e2e_cloud, .cat-both { background: #e0f2fe; color: #0369a1; }
+    .cat-tir { background: #ede9fe; color: #6d28d9; }
+
+    .section { margin-bottom: 10px; }
+    .section:last-child { margin-bottom: 0; }
+    .section-label { font-size: 8pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; margin-bottom: 5px; }
+    ul { padding-left: 0; list-style: none; }
+    li { font-size: 10pt; color: #334155; padding: 2px 0 2px 14px; position: relative; line-height: 1.5; }
+    li::before { content: "·"; position: absolute; left: 4px; color: #94a3b8; }
+
+    .badge { display: inline-block; font-size: 7.5pt; font-weight: 700; padding: 1px 5px; border-radius: 3px; margin-right: 4px; vertical-align: baseline; }
+    .badge-linkedin { background: #dbeafe; color: #1d4ed8; }
+    .badge-twitter { background: #1e293b; color: #fff; }
+    li:has(.badge)::before { display: none; }
+    li:has(.badge) { padding-left: 0; }
+
+    .no-data { font-size: 10pt; color: #94a3b8; font-style: italic; }
+    .footer { margin-top: 28px; border-top: 1px solid #e2e8f0; padding-top: 10px; font-size: 8pt; color: #94a3b8; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1><span class="brand">CT</span>Competitive Intelligence Report</h1>
+    <div class="meta">
+      E2E Networks &nbsp;·&nbsp; ${dateLabel}
+      ${group.runTime ? `&nbsp;·&nbsp; Generated at ${formatTimeIST(group.runTime)}` : ""}
+      &nbsp;·&nbsp; ${group.companies.length} ${group.companies.length === 1 ? "company" : "companies"} tracked
+    </div>
+  </div>
+
+  ${companySections}
+
+  <div class="footer">Generated by CompTrack &nbsp;·&nbsp; ${dateLabel}</div>
+
+  <script>window.onload = function() { window.print(); }<\/script>
+</body>
+</html>`;
+
+  const win = window.open("", "_blank", "width=900,height=700");
+  if (!win) return;
+  win.document.write(html);
+  win.document.close();
+}
+
 // ---------------------------------------------------------------------------
 // Company block inside expanded report
 // ---------------------------------------------------------------------------
@@ -309,15 +421,25 @@ function ReportRow({ group, defaultOpen }: { group: ReportGroup; defaultOpen: bo
           </span>
         </button>
 
-        {/* Download .md */}
-        <button
-          onClick={() => downloadMd(group)}
-          className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 bg-slate-50 hover:bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-lg transition-colors ml-3 shrink-0"
-          title="Download as Claude prompt (.md)"
-        >
-          <Download size={12} />
-          .md
-        </button>
+        {/* Download buttons */}
+        <div className="flex items-center gap-2 ml-3 shrink-0">
+          <button
+            onClick={() => printPdf(group)}
+            className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 bg-slate-50 hover:bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-lg transition-colors"
+            title="Download as PDF"
+          >
+            <FileText size={12} />
+            PDF
+          </button>
+          <button
+            onClick={() => downloadMd(group)}
+            className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 bg-slate-50 hover:bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-lg transition-colors"
+            title="Download as Claude prompt (.md)"
+          >
+            <Download size={12} />
+            .md
+          </button>
+        </div>
       </div>
 
       {/* Expanded: one block per company */}
